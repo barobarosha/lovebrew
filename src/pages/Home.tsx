@@ -1,20 +1,29 @@
-import { useState } from 'react'
-import '../App.css'
+import { Nav } from "@/sections/Nav";
+import { Hero } from "@/sections/Hero";
+import { Services } from "@/sections/Services";
+import { LoftSection } from "@/sections/LoftSection";
+import { BookingCalendar } from "@/sections/BookingCalendar";
+import { CoworkingSection, KidsSection } from "@/sections/CoworkKids";
+import { MenuSection } from "@/sections/MenuSection";
+import { EventsSection } from "@/sections/EventsSection";
+import { Footer } from "@/sections/Footer";
+import { BookingProvider } from "@/components/booking/BookingProvider";
 
 export default function Home() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-    </>
-  )
+    <BookingProvider>
+      <Nav />
+      <main>
+        <Hero />
+        <Services />
+        <LoftSection />
+        <BookingCalendar />
+        <CoworkingSection />
+        <KidsSection />
+        <MenuSection />
+        <EventsSection />
+      </main>
+      <Footer />
+    </BookingProvider>
+  );
 }

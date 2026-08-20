@@ -71,5 +71,66 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: "Manrope", system-ui, sans-serif;
+    background-color: #f4f1e8;
+    color: #2f3128;
   }
+}
+
+/* ---- Лавбрю brand theme ---- */
+:root {
+  --lav-cream: #f4f1e8;
+  --lav-cream-deep: #e7e3d9;
+  --lav-sage: #aaad91;
+  --lav-sage-deep: #6f7260;
+  --lav-ink: #2f3128;
+  --lav-pink: #f4c2c2;
+  --lav-white: #fbfaf6;
+}
+
+.font-display {
+  font-family: "Unbounded", "Manrope", sans-serif;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+/* marquee */
+@keyframes lav-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: lav-marquee 28s linear infinite;
+}
+
+/* soft reveal on scroll */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* custom scrollbar for horizontal strips */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html {
+  scroll-behavior: smooth;
 }
