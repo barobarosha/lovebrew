@@ -1,4 +1,5 @@
 import { BRAND, useReveal, useSiteContent } from "@/lib/site";
+import { imagePath } from "@/lib/imagePath";
 import { useBooking } from "@/components/booking/BookingProvider";
 import { ArrowUpRight, Check } from "lucide-react";
 
@@ -16,7 +17,7 @@ export function CoworkingSection() {
           style={{ borderRadius: "1.5rem 8rem 1.5rem 1.5rem" }}
         >
           <img
-            src="/images/coworking.jpg"
+            src={imagePath("images/coworking.jpg")}
             alt="Коворкинг в Лавбрю"
             className="aspect-[4/3] w-full object-cover"
             loading="lazy"
@@ -147,7 +148,7 @@ export function KidsSection() {
             style={{ borderRadius: "8rem 1.5rem 1.5rem 1.5rem" }}
           >
             <img
-              src="/images/kids.jpg"
+              src={imagePath("images/kids.jpg")}
               alt="Детская игровая комната"
               className="aspect-[4/3] w-full object-cover"
               loading="lazy"

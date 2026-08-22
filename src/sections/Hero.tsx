@@ -1,4 +1,5 @@
 import { BRAND, useSiteContent } from "@/lib/site";
+import { imagePath } from "@/lib/imagePath";
 import { useBooking } from "@/components/booking/BookingProvider";
 import { ArrowDown, MapPin } from "lucide-react";
 
@@ -67,7 +68,7 @@ export function Hero() {
               }}
             >
               <img
-                src="/images/hero-loft.jpg"
+                src={imagePath("images/hero-loft.jpg")}
                 alt="Интерьер лофта Лавбрю"
                 className="aspect-[4/5] w-full object-cover sm:aspect-[5/5]"
               />

@@ -1,4 +1,5 @@
 import { BRAND, useReveal, useSiteContent } from "@/lib/site";
+import { imagePath } from "@/lib/imagePath";
 import { useBooking } from "@/components/booking/BookingProvider";
 import {
   Wifi,
@@ -160,7 +161,7 @@ export function LoftSection() {
 
           <div className="grid content-start gap-4">
             <img
-              src="/images/party.jpg"
+              src={imagePath("images/party.jpg")}
               alt="Праздник в лофте"
               className="w-full rounded-3xl object-cover"
               style={{ aspectRatio: "16/10" }}
@@ -168,14 +169,14 @@ export function LoftSection() {
             />
             <div className="grid grid-cols-2 gap-4">
               <img
-                src="/images/piano.jpg"
+                src={imagePath("images/piano.jpg")}
                 alt="Рояль в лофте"
                 className="w-full rounded-3xl object-cover"
                 style={{ aspectRatio: "1/1", borderRadius: "6rem 1.5rem 1.5rem 1.5rem" }}
                 loading="lazy"
               />
               <img
-                src="/images/hero-loft.jpg"
+                src={imagePath("images/hero-loft.jpg")}
                 alt="Зал лофта"
                 className="w-full rounded-3xl object-cover"
                 style={{ aspectRatio: "1/1", borderRadius: "1.5rem 1.5rem 6rem 1.5rem" }}

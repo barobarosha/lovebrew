@@ -1,12 +1,13 @@
 import { BRAND, formatDateRu, useReveal } from "@/lib/site";
+import { imagePath } from "@/lib/imagePath";
 import { trpc } from "@/providers/trpc";
 import { useBooking } from "@/components/booking/BookingProvider";
 import { CalendarPlus } from "lucide-react";
 
 const FALLBACK_IMAGES = [
-  "/images/party.jpg",
-  "/images/piano.jpg",
-  "/images/hero-loft.jpg",
+  imagePath("images/party.jpg"),
+  imagePath("images/piano.jpg"),
+  imagePath("images/hero-loft.jpg"),
 ];
 
 export function EventsSection() {

@@ -1,4 +1,5 @@
 import { BRAND, useReveal, useSiteContent } from "@/lib/site";
+import { imagePath } from "@/lib/imagePath";
 import { useBooking } from "@/components/booking/BookingProvider";
 import { ArrowUpRight } from "lucide-react";
 
@@ -14,7 +15,7 @@ export function Services() {
       title: "Лофт для мероприятий",
       desc: "Праздники под ключ, дни рождения, мастер-классы и киновечера",
       price: `от ${s.price_loft_weekday ?? "3000"} ₽/ч`,
-      img: "/images/party.jpg",
+      img: imagePath("images/party.jpg"),
       cta: () => openBooking({ type: "loft" }),
       ctaLabel: "Занять слот",
     },
@@ -23,7 +24,7 @@ export function Services() {
       title: "Детская игровая",
       desc: "Без аренды лофта: ежедневно до 15:00 для малышей 0–7 лет",
       price: `${s.price_kids_hour ?? "300"} ₽/час`,
-      img: "/images/kids.jpg",
+      img: imagePath("images/kids.jpg"),
       cta: () => openBooking({ type: "kids" }),
       ctaLabel: "Записаться",
     },
@@ -32,7 +33,7 @@ export function Services() {
       title: "Коворкинг",
       desc: "Работайте в спокойной атмосфере с кофе и быстрым Wi-Fi",
       price: `${s.price_coworking_hour ?? "200"} ₽/час`,
-      img: "/images/coworking.jpg",
+      img: imagePath("images/coworking.jpg"),
       cta: () => openBooking({ type: "coworking" }),
       ctaLabel: "Забронировать место",
     },
@@ -41,7 +42,7 @@ export function Services() {
       title: "Кофейня",
       desc: "Авторские напитки, десерты и завтраки — внутри лофта",
       price: "меню ниже",
-      img: "/images/coffee.jpg",
+      img: imagePath("images/coffee.jpg"),
       cta: () => {
         document
           .getElementById("menu")

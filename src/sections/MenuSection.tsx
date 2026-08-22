@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { BRAND, useReveal, useSiteContent } from "@/lib/site";
+import { imagePath } from "@/lib/imagePath";
 
 export function MenuSection() {
   const ref = useReveal<HTMLElement>();
@@ -24,7 +25,7 @@ export function MenuSection() {
         </h2>
         <div className="overflow-hidden rounded-3xl" style={{ width: 200 }}>
           <img
-            src="/images/coffee.jpg"
+            src={imagePath("images/coffee.jpg")}
             alt="Кофе в Лавбрю"
             className="aspect-[3/2] w-full object-cover"
             loading="lazy"
