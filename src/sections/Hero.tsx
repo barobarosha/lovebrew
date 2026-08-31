@@ -12,13 +12,16 @@ export function Hero() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="grid items-end gap-8 lg:grid-cols-[1.15fr_1fr]">
           <div className="pb-4 lg:pb-14">
-            <p
-              className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-[0.2em]"
+            <a
+              href="https://yandex.ru/maps/?text=%D0%9A%D1%80%D0%B0%D1%81%D0%BD%D0%BE%D0%B3%D0%BE%D1%80%D1%81%D0%BA%2C%20%D0%9A%D1%80%D0%B0%D1%81%D0%BD%D0%BE%D0%B3%D0%BE%D1%80%D1%81%D0%BA%D0%B8%D0%B9%20%D0%B1%D1%83%D0%BB%D1%8C%D0%B2%D0%B0%D1%80%2023%D0%BA2"
+              target="_blank"
+              rel="noreferrer"
+              className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-[0.2em] transition-transform hover:scale-105"
               style={{ background: BRAND.pink, color: BRAND.ink }}
             >
               <MapPin className="h-3.5 w-3.5" />
               Красногорск · ЖК «Спасский мост»
-            </p>
+            </a>
             <h1
               className="font-display text-[13vw] font-extrabold leading-[0.95] tracking-tight sm:text-7xl lg:text-[5.4rem]"
               style={{ color: BRAND.ink }}
