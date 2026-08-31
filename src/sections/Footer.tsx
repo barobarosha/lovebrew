@@ -92,9 +92,19 @@ export function Footer() {
         >
           <p>© 2026 ЛАВБРЮ · Кофейня-лофт в Красногорске</p>
           <p>ИП Аветисян Е.С. · ИНН 773119647813 · ОГРНИП 322774600388110</p>
-          <a href="/admin" className="font-semibold uppercase tracking-wider hover:opacity-100">
-            Вход для администратора
-          </a>
+          <div className="flex items-center gap-4">
+            <a
+              href="https://baroshacode.ru/"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold uppercase tracking-wider hover:opacity-100"
+            >
+              Сайт made by Бароша
+            </a>
+            <a href="/admin" className="font-semibold uppercase tracking-wider hover:opacity-100">
+              Вход для администратора
+            </a>
+          </div>
         </div>
       </div>
     </footer>
