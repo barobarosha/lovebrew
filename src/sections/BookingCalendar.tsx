@@ -254,7 +254,7 @@ export function BookingCalendar() {
                   className="mt-3 w-full rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-transform hover:scale-105"
                   style={{ background: BRAND.sageDeep, color: BRAND.white }}
                 >
-                  Место · {s.price_coworking_hour ?? "200"} ₽/ч
+                  Место · {s.price_coworking_hour ?? "300"} ₽/ч
                 </button>
               </div>
 

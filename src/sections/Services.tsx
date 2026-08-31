@@ -31,7 +31,7 @@ export function Services() {
       id: "coworking",
       title: "Коворкинг",
       desc: "Работайте в спокойной атмосфере с кофе и быстрым Wi-Fi",
-      price: `${s.price_coworking_hour ?? "200"} ₽/час`,
+      price: `от ${s.price_coworking_hour ?? "300"} ₽/час`,
       img: "/images/coworking.jpg",
       cta: () => openBooking({ type: "coworking" }),
       ctaLabel: "Забронировать место",
@@ -39,7 +39,7 @@ export function Services() {
     {
       id: "menu",
       title: "Кофейня",
-      desc: "Авторские напитки, десерты и завтраки — внутри лофта",
+      desc: "Авторские напитки, десерты и завтраки",
       price: "меню ниже",
       img: "/images/coffee.jpg",
       cta: () => {

@@ -142,7 +142,8 @@ function BookingForm({
     ? parseInt(s.price_loft_weekend ?? "3500", 10)
     : parseInt(s.price_loft_weekday ?? "3000", 10);
   const cleaning = parseInt(s.price_cleaning ?? "1500", 10);
-  const coworkPrice = parseInt(s.price_coworking_hour ?? "200", 10);
+  const coworkPrice = parseInt(s.price_coworking_hour ?? "300", 10);
+  const coworkDayPrice = parseInt(s.price_coworking_day ?? "900", 10);
 
   const estimate =
     preset.type === "loft"
@@ -150,7 +151,7 @@ function BookingForm({
         ? null
         : loftPrice * hours + cleaning
       : preset.type === "coworking"
-        ? coworkPrice * hours * guests
+        ? (hours >= 3 ? coworkDayPrice : coworkPrice * hours) * guests
         : null;
 
   const submit = () => {
@@ -212,7 +213,9 @@ function BookingForm({
           {TYPE_TITLES[preset.type]}
         </DialogTitle>
         <DialogDescription>
-          Оставьте заявку — администратор подтвердит бронь и свяжется с вами.
+          {preset.type === "loft"
+            ? "Пространство 100 м² с детской игровой комнатой, проектором, настольными играми и кухней. Оставьте заявку — администратор подтвердит бронь и свяжется с вами."
+            : "Оставьте заявку — администратор подтвердит бронь и свяжется с вами."}
         </DialogDescription>
       </DialogHeader>
 
@@ -292,6 +295,19 @@ function BookingForm({
                 className="rounded-xl"
               />
             </div>
+          </div>
+        )}
+
+        {preset.type === "coworking" && (
+          <div
+            className="rounded-2xl px-4 py-3 text-sm leading-relaxed"
+            style={{ background: BRAND.cream }}
+          >
+            <b>Важно:</b> время работы коворкинга зависит от расписания лофта —
+            уточняйте свободные часы заранее. Тарифы: 1 час — {coworkPrice} ₽, 2
+            часа — {(coworkPrice * 2).toLocaleString("ru-RU")} ₽, день (от 3
+            часов) — {coworkDayPrice.toLocaleString("ru-RU")} ₽. Гостям
+            коворкинга — скидка 20% на напитки в кофейне.
           </div>
         )}
 

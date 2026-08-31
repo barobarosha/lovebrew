@@ -27,7 +27,7 @@ export function Hero() {
               <br />
               <span style={{ color: BRAND.sageDeep }}>+ ЛОФТ</span>
               <br />
-              <span className="font-light">100 м²</span>
+              <span className="font-light">ваше место</span>
             </h1>
             <p className="mt-6 max-w-md text-base leading-relaxed opacity-80 sm:text-lg">
               Идеальное место для отдыха, общения и мероприятий: просторный

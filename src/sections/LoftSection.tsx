@@ -83,6 +83,19 @@ export function LoftSection() {
               йога и тренинги. Пространство трансформируется под ваш формат, а
               праздник можно заказать «под ключ».
             </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {["Площадь 100 м²", "Потолки от 3,5 м", "Детская игровая внутри"].map(
+                (t) => (
+                  <span
+                    key={t}
+                    className="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider"
+                    style={{ background: BRAND.white, color: BRAND.ink }}
+                  >
+                    {t}
+                  </span>
+                ),
+              )}
+            </div>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               <div
