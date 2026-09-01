@@ -23,6 +23,12 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   telegram_bot_token: "",
   telegram_chat_id: "",
   admin_password_hash: "",
+  // QuickResto integration (Back Office API now, WL API later — same provider interface)
+  qr_enabled: "0",
+  qr_layer: "", // имя облака, напр. "lavbrew" → https://lavbrew.quickresto.ru/platform/online
+  qr_login: "",
+  qr_password: "",
+  qr_account_guid: "", // GUID типа бонусного счёта (можно оставить пустым — возьмём первый)
 };
 
 export const PUBLIC_SETTING_KEYS = [

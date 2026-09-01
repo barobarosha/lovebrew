@@ -10,6 +10,7 @@ import { SlotsTab } from "./admin/SlotsTab";
 import { EventsTab } from "./admin/EventsTab";
 import { MenuTab } from "./admin/MenuTab";
 import { SettingsTab } from "./admin/SettingsTab";
+import { AnalyticsTab } from "./admin/AnalyticsTab";
 
 const TOKEN_KEY = "lavbrew_admin_token";
 
@@ -91,6 +92,7 @@ export default function Admin() {
               ["slots", "Слоты лофта"],
               ["events", "Афиша"],
               ["menu", "Меню"],
+              ["analytics", "Аналитика"],
               ["settings", "Настройки"],
             ].map(([v, l]) => (
               <TabsTrigger
@@ -113,6 +115,9 @@ export default function Admin() {
           </TabsContent>
           <TabsContent value="menu">
             <MenuTab token={token} />
+          </TabsContent>
+          <TabsContent value="analytics">
+            <AnalyticsTab token={token} />
           </TabsContent>
           <TabsContent value="settings">
             <SettingsTab token={token} />

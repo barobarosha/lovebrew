@@ -42,6 +42,8 @@ export const bookings = mysqlTable("bookings", {
     .notNull()
     .default("new"),
   adminNote: varchar("admin_note", { length: 255 }),
+  customerId: int("customer_id"), // set when booked from PWA
+  source: varchar("source", { length: 10 }).notNull().default("site"), // site | pwa
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -76,4 +78,44 @@ export const adminSessions = mysqlTable("admin_sessions", {
   token: varchar("token", { length: 64 }).primaryKey(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   expiresAt: timestamp("expires_at").notNull(),
+});
+
+// PWA customers (phone + OTP auth). qrCustomerGuid links to QuickResto CrmCustomer.
+export const customers = mysqlTable("customers", {
+  id: serial("id").primaryKey(),
+  phone: varchar("phone", { length: 20 }).notNull().unique(),
+  name: varchar("name", { length: 120 }).notNull().default(""),
+  qrCustomerGuid: varchar("qr_customer_guid", { length: 80 }),
+  role: mysqlEnum("role", ["customer", "admin"])
+    .notNull()
+    .default("customer"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// PWA customer sessions (token auth)
+export const customerSessions = mysqlTable("customer_sessions", {
+  token: varchar("token", { length: 64 }).primaryKey(),
+  customerId: int("customer_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+// One-time codes for phone auth
+export const otpCodes = mysqlTable("otp_codes", {
+  id: serial("id").primaryKey(),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  code: varchar("code", { length: 6 }).notNull(),
+  attempts: int("attempts").notNull().default(0),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Product analytics (DAU/WAU/MAU, funnels, QR source tracking)
+export const analyticsEvents = mysqlTable("analytics_events", {
+  id: serial("id").primaryKey(),
+  customerId: int("customer_id"),
+  sessionKey: varchar("session_key", { length: 64 }),
+  event: varchar("event", { length: 60 }).notNull(),
+  meta: text("meta"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
