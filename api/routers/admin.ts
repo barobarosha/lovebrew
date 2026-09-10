@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "../queries/connection";
-import { bookings, events, loftSlots, menuItems } from "@db/schema";
+import { bookings, customers, events, loftSlots, menuItems } from "@db/schema";
 import {
   assertAdmin,
   changeAdminPassword,
@@ -385,5 +385,48 @@ export const adminRouter = createRouter({
         });
       }
       return { ok: true };
+    }),
+
+  // ---------- PWA: клиенты, аналитика, QuickResto ----------
+  customers: publicQuery
+    .input(z.object(tokenInput))
+    .query(async ({ input }) => {
+      await assertAdmin(input.token);
+      return getDb()
+        .select()
+        .from(customers)
+        .orderBy(desc(customers.createdAt))
+        .limit(300);
+    }),
+
+  appStats: publicQuery
+    .input(z.object(tokenInput))
+    .query(async ({ input }) => {
+      await assertAdmin(input.token);
+      const { getAppStats } = await import("../services/analytics");
+      return getAppStats();
+    }),
+
+  testQuickResto: publicQuery
+    .input(z.object(tokenInput))
+    .mutation(async ({ input }) => {
+      await assertAdmin(input.token);
+      const { getRestoProvider, resetRestoProviderCache } = await import(
+        "../quickresto/provider"
+      );
+      resetRestoProviderCache();
+      const provider = await getRestoProvider();
+      if (!provider) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Интеграция не настроена: включите qr_enabled и заполните слой, логин и пароль",
+        });
+      }
+      const r = await provider.ping();
+      if (!r.ok) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: r.detail });
+      }
+      return { ok: true, mode: provider.mode, detail: r.detail };
     }),
 });

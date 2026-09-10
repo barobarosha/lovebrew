@@ -49,6 +49,9 @@ export function Footer() {
                 icon: MapPin,
                 label: "Адрес",
                 value: s.address ?? "Красногорский бульвар, 23к2, Красногорск",
+                href: `https://yandex.ru/maps/?text=${encodeURIComponent(
+                  "Красногорск, " + (s.address ?? "Красногорский бульвар, 23к2"),
+                )}`,
               },
               { icon: Phone, label: "Телефон", value: phone, href: `tel:${phone.replace(/[^+\d]/g, "")}` },
               { icon: Mail, label: "Почта", value: s.email ?? "love-brew@mail.ru", href: `mailto:${s.email ?? "love-brew@mail.ru"}` },
@@ -74,7 +77,12 @@ export function Footer() {
                     {row.label}
                   </p>
                   {row.href ? (
-                    <a href={row.href} className="font-display text-sm font-semibold hover:underline">
+                    <a
+                      href={row.href}
+                      target={row.href.startsWith("http") ? "_blank" : undefined}
+                      rel={row.href.startsWith("http") ? "noreferrer" : undefined}
+                      className="font-display text-sm font-semibold hover:underline"
+                    >
                       {row.value}
                     </a>
                   ) : (
@@ -92,9 +100,22 @@ export function Footer() {
         >
           <p>© 2026 ЛАВБРЮ · Кофейня-лофт в Красногорске</p>
           <p>ИП Аветисян Е.С. · ИНН 773119647813 · ОГРНИП 322774600388110</p>
-          <a href="/admin" className="font-semibold uppercase tracking-wider hover:opacity-100">
-            Вход для администратора
-          </a>
+          <div className="flex items-center gap-5">
+            <a
+              href="/app"
+              className="font-semibold uppercase tracking-wider hover:opacity-100"
+            >
+              Приложение
+            </a>
+            <a
+              href="https://baroshacode.ru/"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold uppercase tracking-wider hover:opacity-100"
+            >
+              Сайт made by Бароша
+            </a>
+          </div>
         </div>
       </div>
     </footer>

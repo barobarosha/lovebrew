@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Send } from "lucide-react";
+import { Plug, Send } from "lucide-react";
 
 const GROUPS: { title: string; keys: { key: string; label: string; hint?: string; multiline?: boolean }[] }[] = [
   {
@@ -45,6 +45,16 @@ const GROUPS: { title: string; keys: { key: string; label: string; hint?: string
       { key: "telegram_chat_id", label: "Chat ID", hint: "Узнать можно через @userinfobot — напишите боту и получите id" },
     ],
   },
+  {
+    title: "Интеграция Quick Resto",
+    keys: [
+      { key: "qr_enabled", label: "Интеграция включена (1/0)", hint: "1 — приложение берёт меню и бонусы из Quick Resto; 0 — работает на данных сайта" },
+      { key: "qr_layer", label: "Имя облака", hint: "Например «lavbrew» → lavbrew.quickresto.ru" },
+      { key: "qr_login", label: "Логин Back Office API" },
+      { key: "qr_password", label: "Пароль Back Office API" },
+      { key: "qr_account_guid", label: "GUID типа бонусного счёта", hint: "Можно оставить пустым — возьмём первый из списка автоматически" },
+    ],
+  },
 ];
 
 export function SettingsTab({ token }: { token: string }) {
@@ -78,6 +88,11 @@ export function SettingsTab({ token }: { token: string }) {
 
   const testTg = trpc.admin.testTelegram.useMutation({
     onSuccess: () => alert("Тестовое уведомление отправлено в Telegram!"),
+    onError: (e) => alert(e.message),
+  });
+
+  const testQr = trpc.admin.testQuickResto.useMutation({
+    onSuccess: (r) => alert(`Quick Resto: ${r.detail} (режим: ${r.mode})`),
     onError: (e) => alert(e.message),
   });
 
@@ -121,6 +136,22 @@ export function SettingsTab({ token }: { token: string }) {
                 }}
               >
                 <Send className="mr-2 h-4 w-4" /> Сохранить и отправить тест
+              </Button>
+            )}
+            {g.title === "Интеграция Quick Resto" && (
+              <Button
+                variant="outline"
+                className="w-max rounded-full"
+                disabled={testQr.isPending}
+                onClick={() => {
+                  update.mutate(
+                    { token, values },
+                    { onSuccess: () => testQr.mutate({ token }) },
+                  );
+                }}
+              >
+                <Plug className="mr-2 h-4 w-4" />
+                {testQr.isPending ? "Проверяем связь…" : "Сохранить и проверить связь"}
               </Button>
             )}
           </div>

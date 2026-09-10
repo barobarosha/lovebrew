@@ -1,5 +1,4 @@
 import { BRAND, useReveal, useSiteContent } from "@/lib/site";
-import { imagePath } from "@/lib/imagePath";
 import { useBooking } from "@/components/booking/BookingProvider";
 import {
   Wifi,
@@ -84,6 +83,19 @@ export function LoftSection() {
               йога и тренинги. Пространство трансформируется под ваш формат, а
               праздник можно заказать «под ключ».
             </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {["Площадь 100 м²", "Потолки от 3,5 м", "Детская игровая внутри"].map(
+                (t) => (
+                  <span
+                    key={t}
+                    className="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider"
+                    style={{ background: BRAND.white, color: BRAND.ink }}
+                  >
+                    {t}
+                  </span>
+                ),
+              )}
+            </div>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               <div
@@ -161,7 +173,7 @@ export function LoftSection() {
 
           <div className="grid content-start gap-4">
             <img
-              src={imagePath("images/party.jpg")}
+              src="/images/party.jpg"
               alt="Праздник в лофте"
               className="w-full rounded-3xl object-cover"
               style={{ aspectRatio: "16/10" }}
@@ -169,14 +181,14 @@ export function LoftSection() {
             />
             <div className="grid grid-cols-2 gap-4">
               <img
-                src={imagePath("images/piano.jpg")}
+                src="/images/piano.jpg"
                 alt="Рояль в лофте"
                 className="w-full rounded-3xl object-cover"
                 style={{ aspectRatio: "1/1", borderRadius: "6rem 1.5rem 1.5rem 1.5rem" }}
                 loading="lazy"
               />
               <img
-                src={imagePath("images/hero-loft.jpg")}
+                src="/images/hero-loft.jpg"
                 alt="Зал лофта"
                 className="w-full rounded-3xl object-cover"
                 style={{ aspectRatio: "1/1", borderRadius: "1.5rem 1.5rem 6rem 1.5rem" }}

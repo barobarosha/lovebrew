@@ -1,0 +1,37 @@
+# Полный стек «Лавбрю» на одном VPS: приложение + MySQL.
+# Запуск: docker compose up -d --build
+# Первый старт сам создаст таблицы и наполнит меню/афишу демо-данными.
+services:
+  db:
+    image: mysql:8.4
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}
+      MYSQL_DATABASE: lavbrew
+      MYSQL_USER: lavbrew
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "lavbrew", "-p$${MYSQL_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      APP_ID: ${APP_ID:-local}
+      APP_SECRET: ${APP_SECRET:-local}
+      DATABASE_URL: mysql://lavbrew:${MYSQL_PASSWORD:-change-me}@db:3306/lavbrew
+    ports:
+      - "3000:3000"
+
+volumes:
+  db_data:

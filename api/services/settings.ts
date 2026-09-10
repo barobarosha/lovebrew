@@ -14,7 +14,8 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   price_cleaning: "1500",
   price_kids_hour: "300",
   price_kids_unlimited: "1000",
-  price_coworking_hour: "200",
+  price_coworking_hour: "300",
+  price_coworking_day: "900",
   coworking_capacity: "8",
   promo_text:
     "В день аренды скидка 20% на напитки в кофейне по промокоду ЛЮБЛЮЛАВБРЮ",
@@ -22,6 +23,12 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   telegram_bot_token: "",
   telegram_chat_id: "",
   admin_password_hash: "",
+  // QuickResto integration (Back Office API now, WL API later — same provider interface)
+  qr_enabled: "0",
+  qr_layer: "", // имя облака, напр. "lavbrew" → https://lavbrew.quickresto.ru/platform/online
+  qr_login: "",
+  qr_password: "",
+  qr_account_guid: "", // GUID типа бонусного счёта (можно оставить пустым — возьмём первый)
 };
 
 export const PUBLIC_SETTING_KEYS = [
@@ -37,6 +44,7 @@ export const PUBLIC_SETTING_KEYS = [
   "price_kids_hour",
   "price_kids_unlimited",
   "price_coworking_hour",
+  "price_coworking_day",
   "promo_text",
   "offer_3plus1",
 ];
