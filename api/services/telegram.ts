@@ -6,8 +6,7 @@ const TYPE_LABELS: Record<string, string> = {
   kids: "Детская комната",
 };
 
-export async function notifyAdminNewBooking(b: {
-  type: string;
+export async function notifyAdminNewBooking(b: {  type: string;
   name: string;
   phone: string;
   date: string;
@@ -54,6 +53,45 @@ export async function notifyAdminNewBooking(b: {
         body: JSON.stringify({
           chat_id: chatId,
           text: lines.join("\n"),
+        }),
+      },
+    );
+    return { sent: res.ok };
+  } catch (e) {
+    console.error("Telegram notify failed", e);
+    return { sent: false, reason: "error" };
+  }
+}
+
+/** Уведомление о записи на мероприятие из афиши */
+export async function notifyAdminEventRegistration(r: {
+  eventTitle: string;
+  eventDate: string;
+  name: string;
+  phone: string;
+}) {
+  try {
+    const s = await getAllSettings();
+    const token = s.telegram_bot_token;
+    const chatId = s.telegram_chat_id;
+    if (!token || !chatId) return { sent: false, reason: "not_configured" };
+    const res = await fetch(
+      `https://api.telegram.org/bot${token}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: [
+            `🎟 Новая запись на мероприятие`,
+            ``,
+            `📌 ${r.eventTitle}`,
+            `📅 Дата: ${r.eventDate}`,
+            `👤 Имя: ${r.name}`,
+            `📞 Телефон: ${r.phone}`,
+            ``,
+            `Подтвердите запись в админке (вкладка «Афиша»).`,
+          ].join("\n"),
         }),
       },
     );

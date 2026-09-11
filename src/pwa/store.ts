@@ -32,6 +32,10 @@ export interface PwaContextValue {
   setCustomerToken: (t: string) => void;
   track: (event: string, meta?: Record<string, string | number>) => void;
   openLogin: () => void;
+  /** Открыть шторку бронирования (лофт/коворкинг/детская) из любого экрана */
+  openBooking: () => void;
+  closeBooking: () => void;
+  bookingOpen: boolean;
 }
 
 export const PwaContext = createContext<PwaContextValue>({
@@ -41,6 +45,9 @@ export const PwaContext = createContext<PwaContextValue>({
   setCustomerToken: () => {},
   track: () => {},
   openLogin: () => {},
+  openBooking: () => {},
+  closeBooking: () => {},
+  bookingOpen: false,
 });
 
 export function usePwa() {

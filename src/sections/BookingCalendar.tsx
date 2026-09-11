@@ -203,11 +203,8 @@ export function BookingCalendar() {
             </p>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {/* Loft slots */}
-              {(weekend
-                ? (["day", "evening"] as const)
-                : (["fullday"] as const)
-              ).map((slot) => {
+              {/* Loft slots — день/вечер каждый день */}
+              {(["day", "evening"] as const).map((slot) => {
                 const st = dayData.loft[slot] ?? "available";
                 const free = st === "available";
                 return (
@@ -217,7 +214,7 @@ export function BookingCalendar() {
                     style={{ background: BRAND.white }}
                   >
                     <p className="text-xs font-bold uppercase tracking-wider opacity-60">
-                      Лофт · {slot === "day" ? "дневной до 15:00" : slot === "evening" ? "вечерний с 16:00" : "будний день"}
+                      Лофт · {slot === "day" ? "дневной до 15:00" : "вечерний с 16:00"}
                     </p>
                     <p
                       className="font-display mt-1 text-sm font-semibold"
@@ -267,16 +264,14 @@ export function BookingCalendar() {
                   Детская игровая
                 </p>
                 <p className="font-display mt-1 text-sm font-semibold" style={{ color: BRAND.sageDeep }}>
-                  {Object.values(dayData.loft).some((v) => v === "booked")
-                    ? "уточните — лофт занят"
-                    : "до 15:00 · свободный вход"}
+                  до 15:00 · вход без почасовой тарификации
                 </p>
                 <button
                   onClick={() => openBooking({ type: "kids", date: selected })}
                   className="mt-3 w-full rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-transform hover:scale-105"
                   style={{ background: BRAND.pink, color: BRAND.ink }}
                 >
-                  Записаться · {s.price_kids_hour ?? "300"} ₽/ч
+                  Записаться · {s.price_kids_hour ?? "300"} ₽ вход
                 </button>
               </div>
             </div>

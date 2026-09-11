@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "../queries/connection";
-import { bookings, customers, events, loftSlots, menuItems } from "@db/schema";
+import { bookings, customers, eventRegistrations, events, loftSlots, menuItems } from "@db/schema";
 import {
   assertAdmin,
   changeAdminPassword,
@@ -18,6 +18,16 @@ import {
 } from "../services/settings";
 import { getMonthCalendar, slotsForDate } from "../services/availability";
 import { clientIp, rateLimitOrThrow } from "../lib/rateLimit";
+import { formatPhone, normalizePhone } from "../services/customerAuth";
+
+// URL картинки или data URI (base64 до ~300 КБ после сжатия на клиенте)
+const imageUrlInput = z
+  .string()
+  .max(420_000, "Картинка слишком большая — выберите файл поменьше")
+  .refine(
+    (v) => /^https?:\/\//.test(v) || /^data:image\/(jpeg|jpg|png|webp);base64,/.test(v),
+    "Нужна ссылка на картинку или файл изображения",
+  );
 
 const tokenInput = { token: z.string().min(10, "Недействительная сессия") };
 
@@ -121,10 +131,11 @@ export const adminRouter = createRouter({
     .mutation(async ({ input }) => {
       await assertAdmin(input.token);
       const db = getDb();
+      const normalized = normalizePhone(input.phone);
       const [result] = await db.insert(bookings).values({
         type: input.type,
         name: input.name,
-        phone: input.phone,
+        phone: normalized ? formatPhone(normalized) : input.phone,
         date: input.date,
         slot: input.type === "loft" ? (input.slot ?? "fullday") : null,
         startTime: input.startTime ?? null,
@@ -141,6 +152,46 @@ export const adminRouter = createRouter({
     .mutation(async ({ input }) => {
       await assertAdmin(input.token);
       await getDb().delete(bookings).where(eq(bookings.id, input.id));
+      return { ok: true };
+    }),
+
+  updateBooking: publicQuery
+    .input(
+      z.object({
+        ...tokenInput,
+        id: z.number().int(),
+        type: z.enum(["loft", "coworking", "kids"]),
+        name: z.string().min(1, "Укажите имя").max(120),
+        phone: z.string().max(40).default(""),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Выберите дату"),
+        slot: z.enum(["day", "evening", "fullday"]).optional(),
+        startTime: z.string().regex(/^\d{2}:\d{2}$/, "Укажите время").optional(),
+        hours: z.number().int().min(1).max(24).optional(),
+        guests: z.number().int().min(1).max(100).optional(),
+        comment: z.string().max(1000).optional(),
+        adminNote: z.string().max(255).optional(),
+        status: z.enum(["new", "confirmed", "rejected"]),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      await assertAdmin(input.token);
+      const normalized = normalizePhone(input.phone);
+      await getDb()
+        .update(bookings)
+        .set({
+          type: input.type,
+          name: input.name,
+          phone: normalized ? formatPhone(normalized) : input.phone,
+          date: input.date,
+          slot: input.type === "loft" ? (input.slot ?? "day") : null,
+          startTime: input.startTime ?? null,
+          hours: input.hours ?? null,
+          guests: input.guests ?? null,
+          comment: input.comment ?? null,
+          adminNote: input.adminNote ?? null,
+          status: input.status,
+        })
+        .where(eq(bookings.id, input.id));
       return { ok: true };
     }),
 
@@ -216,8 +267,9 @@ export const adminRouter = createRouter({
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         time: z.string().regex(/^\d{2}:\d{2}$/).optional(),
         price: z.string().max(60).optional(),
-        imageUrl: z.string().max(500).optional(),
+        imageUrl: imageUrlInput.optional(),
         isPublished: z.boolean().default(true),
+        registrationOpen: z.boolean().default(false),
       }),
     )
     .mutation(async ({ input }) => {
@@ -231,6 +283,7 @@ export const adminRouter = createRouter({
         price: input.price ?? null,
         imageUrl: input.imageUrl ?? null,
         isPublished: input.isPublished,
+        registrationOpen: input.registrationOpen,
       };
       if (input.id) {
         await db.update(events).set(data).where(eq(events.id, input.id));
@@ -244,7 +297,62 @@ export const adminRouter = createRouter({
     .input(z.object({ ...tokenInput, id: z.number().int() }))
     .mutation(async ({ input }) => {
       await assertAdmin(input.token);
-      await getDb().delete(events).where(eq(events.id, input.id));
+      const db = getDb();
+      await db.delete(eventRegistrations).where(eq(eventRegistrations.eventId, input.id));
+      await db.delete(events).where(eq(events.id, input.id));
+      return { ok: true };
+    }),
+
+  // ---------- Записи на мероприятия ----------
+  eventRegistrations: publicQuery
+    .input(z.object({ ...tokenInput, eventId: z.number().int().optional() }))
+    .query(async ({ input }) => {
+      await assertAdmin(input.token);
+      const db = getDb();
+      const base = db
+        .select({
+          id: eventRegistrations.id,
+          eventId: eventRegistrations.eventId,
+          name: eventRegistrations.name,
+          phone: eventRegistrations.phone,
+          status: eventRegistrations.status,
+          createdAt: eventRegistrations.createdAt,
+          eventTitle: events.title,
+          eventDate: events.date,
+        })
+        .from(eventRegistrations)
+        .innerJoin(events, eq(eventRegistrations.eventId, events.id));
+      return input.eventId
+        ? base
+            .where(eq(eventRegistrations.eventId, input.eventId))
+            .orderBy(desc(eventRegistrations.createdAt))
+        : base.orderBy(desc(eventRegistrations.createdAt)).limit(300);
+    }),
+
+  setEventRegistrationStatus: publicQuery
+    .input(
+      z.object({
+        ...tokenInput,
+        id: z.number().int(),
+        status: z.enum(["new", "confirmed", "rejected"]),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      await assertAdmin(input.token);
+      await getDb()
+        .update(eventRegistrations)
+        .set({ status: input.status })
+        .where(eq(eventRegistrations.id, input.id));
+      return { ok: true };
+    }),
+
+  deleteEventRegistration: publicQuery
+    .input(z.object({ ...tokenInput, id: z.number().int() }))
+    .mutation(async ({ input }) => {
+      await assertAdmin(input.token);
+      await getDb()
+        .delete(eventRegistrations)
+        .where(eq(eventRegistrations.id, input.id));
       return { ok: true };
     }),
 
@@ -269,7 +377,7 @@ export const adminRouter = createRouter({
         description: z.string().max(300).optional(),
         volume: z.string().max(30).optional(),
         price: z.number().int().min(0),
-        imageUrl: z.string().max(500).optional(),
+        imageUrl: imageUrlInput.optional(),
         sortOrder: z.number().int().default(0),
         isActive: z.boolean().default(true),
       }),

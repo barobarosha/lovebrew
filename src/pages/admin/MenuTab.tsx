@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { trpc } from "@/providers/trpc";
-import { BRAND } from "@/lib/site";
+import { BRAND, fileToImageDataUrl } from "@/lib/site";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { FileUp, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 
 type MenuForm = {
   id?: number;
@@ -20,6 +20,7 @@ type MenuForm = {
   description: string;
   volume: string;
   price: string;
+  imageUrl: string;
   sortOrder: number;
   isActive: boolean;
 };
@@ -30,6 +31,7 @@ const EMPTY: MenuForm = {
   description: "",
   volume: "",
   price: "",
+  imageUrl: "",
   sortOrder: 0,
   isActive: true,
 };
@@ -162,6 +164,13 @@ export function MenuTab({ token }: { token: string }) {
               .filter((m) => m.category === cat)
               .map((m) => (
                 <div key={m.id} className="flex items-center gap-3 px-3 py-2.5">
+                  {m.imageUrl && (
+                    <img
+                      src={m.imageUrl}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded-xl object-cover"
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold">
                       {m.name}
@@ -187,6 +196,7 @@ export function MenuTab({ token }: { token: string }) {
                         description: m.description ?? "",
                         volume: m.volume ?? "",
                         price: String(m.price),
+                        imageUrl: m.imageUrl ?? "",
                         sortOrder: m.sortOrder,
                         isActive: m.isActive,
                       })
@@ -252,6 +262,54 @@ export function MenuTab({ token }: { token: string }) {
                 <Label>Описание</Label>
                 <Input className="rounded-xl" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </div>
+              <div className="grid gap-1">
+                <Label>Картинка позиции (показывается в приложении)</Label>
+                {form.imageUrl ? (
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={form.imageUrl}
+                      alt=""
+                      className="h-16 w-16 rounded-xl object-cover"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full"
+                      onClick={() => setForm({ ...form, imageUrl: "" })}
+                    >
+                      <X className="mr-1 h-3.5 w-3.5" /> Убрать
+                    </Button>
+                  </div>
+                ) : (
+                  <label
+                    className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm font-semibold"
+                    style={{ borderColor: BRAND.sageDeep, color: BRAND.sageDeep }}
+                  >
+                    <ImagePlus className="h-4 w-4" />
+                    Загрузить фото
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!f) return;
+                        try {
+                          const dataUrl = await fileToImageDataUrl(f, 800);
+                          setForm({ ...form, imageUrl: dataUrl });
+                        } catch (err) {
+                          alert((err as Error).message);
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+                <p className="text-xs opacity-50">
+                  Фото сожмётся автоматически и сохранится вместе с позицией
+                </p>
+              </div>
               <label className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: BRAND.cream }}>
                 <span className="text-sm font-semibold">Показывать на сайте</span>
                 <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
@@ -272,6 +330,7 @@ export function MenuTab({ token }: { token: string }) {
                     description: form.description || undefined,
                     volume: form.volume || undefined,
                     price: parseInt(form.price, 10) || 0,
+                    imageUrl: form.imageUrl || undefined,
                     sortOrder: form.sortOrder,
                     isActive: form.isActive,
                   })

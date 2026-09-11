@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gte, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, or, sql } from "drizzle-orm";
 import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "../queries/connection";
-import { bookings, events, menuItems } from "@db/schema";
+import { bookings, eventRegistrations, events, menuItems } from "@db/schema";
 import {
   assertCustomer,
   destroyCustomerSession,
@@ -20,7 +20,7 @@ import {
   checkCoworkingAvailability,
   checkLoftAvailability,
 } from "../services/availability";
-import { notifyAdminNewBooking } from "../services/telegram";
+import { notifyAdminEventRegistration, notifyAdminNewBooking } from "../services/telegram";
 import { clientIp, rateLimitOrThrow } from "../lib/rateLimit";
 
 const optionalToken = { token: z.string().optional() };
@@ -247,14 +247,16 @@ export const pwaRouter = createRouter({
     .query(async ({ input }) => {
       const customer = await assertCustomer(input.token);
       const db = getDb();
+      // Телефон в заявках мог быть записан в любом формате — сравниваем по
+      // последним 10 цифрам, убрав все разделители
+      const last10 = customer.phone.slice(-10);
       return db
         .select()
         .from(bookings)
         .where(
           or(
             eq(bookings.customerId, customer.id),
-            eq(bookings.phone, formatPhone(customer.phone)),
-            eq(bookings.phone, customer.phone),
+            sql`REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(${bookings.phone}, ' ', ''), '(', ''), ')', ''), '-', ''), '+', '') LIKE ${"%" + last10}`,
           ),
         )
         .orderBy(desc(bookings.createdAt))
@@ -328,7 +330,7 @@ export const pwaRouter = createRouter({
         date: input.date,
         slot: input.type === "loft" ? (input.slot ?? "fullday") : null,
         startTime: input.startTime ?? null,
-        hours: input.hours ?? null,
+        hours: input.type === "kids" ? null : (input.hours ?? null), // детская — фиксированный вход без почасовой
         guests: input.guests ?? null,
         comment: input.comment ?? null,
         status: "new",
@@ -357,7 +359,89 @@ export const pwaRouter = createRouter({
       return { id: Number((result as { insertId?: number }).insertId ?? 0) };
     }),
 
-  // ---------- Аналитика ----------
+  // ---------- Запись на мероприятие ----------
+  registerEvent: publicQuery
+    .input(z.object({ ...withToken, eventId: z.number().int() }))
+    .mutation(async ({ input, ctx }) => {
+      rateLimitOrThrow(`pwa-event-reg:ip:${clientIp(ctx.req)}`, 10, 10 * 60 * 1000);
+      const customer = await assertCustomer(input.token);
+      const db = getDb();
+      const ev = (
+        await db
+          .select()
+          .from(events)
+          .where(
+            and(
+              eq(events.id, input.eventId),
+              eq(events.isPublished, true),
+              eq(events.registrationOpen, true),
+              gte(events.date, todayStr()),
+            ),
+          )
+          .limit(1)
+      )[0];
+      if (!ev) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Запись на это мероприятие закрыта",
+        });
+      }
+      // Одна активная запись на мероприятие от одного клиента
+      const existing = await db
+        .select()
+        .from(eventRegistrations)
+        .where(
+          and(
+            eq(eventRegistrations.eventId, ev.id),
+            eq(eventRegistrations.customerId, customer.id),
+            sql`${eventRegistrations.status} <> 'rejected'`,
+          ),
+        )
+        .limit(1);
+      if (existing.length) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Вы уже записаны на это мероприятие",
+        });
+      }
+      await db.insert(eventRegistrations).values({
+        eventId: ev.id,
+        customerId: customer.id,
+        name: customer.name || "Гость Лавбрю",
+        phone: formatPhone(customer.phone),
+        status: "new",
+      });
+      void notifyAdminEventRegistration({
+        eventTitle: ev.title,
+        eventDate: ev.date,
+        name: customer.name || "Гость Лавбрю",
+        phone: formatPhone(customer.phone),
+      });
+      return { ok: true };
+    }),
+
+  // Мои записи на мероприятия
+  myEventRegistrations: publicQuery
+    .input(z.object(withToken))
+    .query(async ({ input }) => {
+      const customer = await assertCustomer(input.token);
+      const db = getDb();
+      return db
+        .select({
+          id: eventRegistrations.id,
+          status: eventRegistrations.status,
+          createdAt: eventRegistrations.createdAt,
+          eventId: events.id,
+          eventTitle: events.title,
+          eventDate: events.date,
+          eventTime: events.time,
+        })
+        .from(eventRegistrations)
+        .innerJoin(events, eq(eventRegistrations.eventId, events.id))
+        .where(eq(eventRegistrations.customerId, customer.id))
+        .orderBy(desc(eventRegistrations.createdAt))
+        .limit(20);
+    }),
   track: publicQuery
     .input(
       z.object({

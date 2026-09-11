@@ -9,6 +9,7 @@ import {
 } from "../services/availability";
 import { notifyAdminNewBooking } from "../services/telegram";
 import { clientIp, rateLimitOrThrow } from "../lib/rateLimit";
+import { formatPhone, normalizePhone } from "../services/customerAuth";
 
 const phoneRegex = /^[+\d][\d\s()\-]{6,20}$/;
 
@@ -74,10 +75,13 @@ export const bookingRouter = createRouter({
       }
 
       const db = getDb();
+      // Нормализуем телефон, чтобы заявка с сайта находилась в профиле приложения
+      const normalized = normalizePhone(input.phone);
+      const phone = normalized ? formatPhone(normalized) : input.phone;
       const [result] = await db.insert(bookings).values({
         type: input.type,
         name: input.name,
-        phone: input.phone,
+        phone,
         date: input.date,
         slot: input.type === "loft" ? (input.slot ?? "fullday") : null,
         startTime: input.startTime ?? null,
@@ -91,7 +95,7 @@ export const bookingRouter = createRouter({
       void notifyAdminNewBooking({
         type: input.type,
         name: input.name,
-        phone: input.phone,
+        phone,
         date: input.date,
         slot: input.slot,
         startTime: input.startTime,

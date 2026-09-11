@@ -133,14 +133,16 @@ export function KidsSection() {
                 <p className="font-display text-3xl font-bold">
                   {s.price_kids_hour ?? "300"} ₽
                 </p>
-                <p className="mt-1 text-sm opacity-70">1 час игры</p>
+                <p className="mt-1 text-sm opacity-70">
+                  вход · время не ограничено
+                </p>
               </div>
               <div className="rounded-3xl p-5" style={{ background: BRAND.pink }}>
-                <p className="font-display text-3xl font-bold">
-                  {s.price_kids_unlimited ?? "1000"} ₽
+                <p className="font-display text-lg font-bold leading-tight">
+                  до 15:00
                 </p>
                 <p className="mt-1 text-sm opacity-80">
-                  безлимит до 15:00 + напиток в подарок
+                  ежедневно, для малышей 0–7 лет
                 </p>
               </div>
             </div>

@@ -1,11 +1,13 @@
+import { useState } from "react";
 import QRCode from "react-qr-code";
-import { ArrowRight, CalendarDays, Coffee, MapPin, Sparkles } from "lucide-react";
+import { ArrowRight, CalendarDays, Coffee, MapPin, X } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { usePwa } from "../store";
 import { BRAND, formatDateRu } from "@/lib/site";
 
 export default function HomeScreen() {
-  const { customerToken, setTab, openLogin, track } = usePwa();
+  const { customerToken, setTab, openLogin, openBooking, track } = usePwa();
+  const [qrOpen, setQrOpen] = useState(false);
   const home = trpc.pwa.home.useQuery(
     { token: customerToken || undefined },
     { staleTime: 30_000 },
@@ -70,10 +72,13 @@ export default function HomeScreen() {
               )}
             </div>
             <button
-              onClick={() => track("pwa_qr_shown")}
+              onClick={() => {
+                track("pwa_qr_shown");
+                setQrOpen(true);
+              }}
               className="rounded-2xl p-3"
               style={{ background: BRAND.cream }}
-              title="Покажите код на кассе"
+              title="Нажмите, чтобы увеличить код для кассы"
             >
               <QRCode
                 value={`lavbrew:${customer.phone}`}
@@ -85,7 +90,7 @@ export default function HomeScreen() {
                 className="mt-2 text-center text-[10px] font-medium"
                 style={{ color: BRAND.sageDeep }}
               >
-                код на кассе
+                код на кассе · нажмите, чтобы увеличить
               </p>
             </button>
           </div>
@@ -108,7 +113,7 @@ export default function HomeScreen() {
       {/* Быстрые действия */}
       <div className="mt-4 grid grid-cols-2 gap-3">
         <button
-          onClick={() => setTab("events")}
+          onClick={openBooking}
           className="rounded-3xl p-4 text-left"
           style={{ background: BRAND.pink }}
         >
@@ -134,30 +139,6 @@ export default function HomeScreen() {
           </p>
         </button>
       </div>
-
-      {/* Акции */}
-      {(s.promo_text || s.offer_3plus1) && (
-        <div className="mt-4 space-y-2">
-          {s.promo_text && (
-            <div
-              className="flex items-start gap-3 rounded-2xl p-4"
-              style={{ background: BRAND.white }}
-            >
-              <Sparkles size={18} className="mt-0.5 shrink-0" />
-              <p className="text-sm leading-snug">{s.promo_text}</p>
-            </div>
-          )}
-          {s.offer_3plus1 && (
-            <div
-              className="flex items-start gap-3 rounded-2xl p-4"
-              style={{ background: BRAND.creamDeep }}
-            >
-              <Sparkles size={18} className="mt-0.5 shrink-0" />
-              <p className="text-sm leading-snug">{s.offer_3plus1}</p>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Ближайшие события */}
       {!!home.data?.upcomingEvents?.length && (
@@ -211,6 +192,50 @@ export default function HomeScreen() {
           </p>
         </div>
       </a>
+
+      {/* Увеличенный QR для кассы */}
+      {qrOpen && customer && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
+          onClick={() => setQrOpen(false)}
+        >
+          <div
+            className="w-full max-w-xs rounded-3xl p-6 text-center"
+            style={{ background: BRAND.white }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <p className="font-display text-sm font-bold uppercase">
+                Карта гостя
+              </p>
+              <button
+                onClick={() => setQrOpen(false)}
+                className="rounded-full p-2"
+                style={{ background: BRAND.cream }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div
+              className="mx-auto w-fit rounded-2xl p-4"
+              style={{ background: BRAND.cream }}
+            >
+              <QRCode
+                value={`lavbrew:${customer.phone}`}
+                size={240}
+                fgColor={BRAND.ink}
+                bgColor={BRAND.cream}
+                style={{ width: "100%", height: "auto", maxWidth: 240 }}
+              />
+            </div>
+            <p className="mt-3 text-sm font-bold">{customer.phoneFormatted}</p>
+            <p className="mt-1 text-xs" style={{ color: BRAND.sageDeep }}>
+              Покажите код бариста — бонусы начислятся на этот номер.
+              Совет: прибавьте яркость экрана, так сканер считает быстрее.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

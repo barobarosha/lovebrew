@@ -120,14 +120,54 @@ export function useReveal<T extends HTMLElement>() {
   return ref;
 }
 
-export function slotLabel(slot: string | null | undefined): string {
-  switch (slot) {
+/** Маска ввода телефона: +7 (XXX) XXX-XX-XX */
+export function formatPhoneInput(raw: string): string {
+  let d = raw.replace(/\D/g, "");
+  if (d.startsWith("8")) d = "7" + d.slice(1);
+  if (d && !d.startsWith("7")) d = "7" + d;
+  d = d.slice(0, 11);
+  if (!d) return "";
+  let out = "+7";
+  if (d.length > 1) out += ` (${d.slice(1, 4)}`;
+  if (d.length >= 4) out += `) ${d.slice(4, 7)}`;
+  if (d.length >= 7) out += `-${d.slice(7, 9)}`;
+  if (d.length >= 9) out += `-${d.slice(9, 11)}`;
+  return out;
+}
+
+/** Сжимает картинку на клиенте до data URI (JPEG ≤ maxPx по ширине) */
+export function fileToImageDataUrl(file: File, maxPx = 800): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Нужен файл изображения"));
+      return;
+    }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / img.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.82));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Не удалось прочитать картинку"));
+    };
+    img.src = url;
+  });
+}
+
+export function slotLabel(slot: string | null | undefined): string {  switch (slot) {
     case "day":
       return "дневной (до 15:00)";
     case "evening":
       return "вечерний (с 16:00)";
     case "fullday":
-      return "будний день";
+      return "весь день";
     default:
       return "—";
   }

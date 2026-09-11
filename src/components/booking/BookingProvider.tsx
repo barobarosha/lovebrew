@@ -130,7 +130,7 @@ function BookingForm({
 
   const [date, setDate] = useState(preset.date ?? "");
   const [slot, setSlot] = useState<"day" | "evening" | "fullday">(
-    preset.slot ?? (preset.date && isWeekendDate(preset.date) ? "day" : "fullday"),
+    preset.slot ?? "day",
   );
   const [startTime, setStartTime] = useState("10:00");
   const [hours, setHours] = useState(2);
@@ -147,12 +147,15 @@ function BookingForm({
   const cleaning = parseInt(s.price_cleaning ?? "1500", 10);
   const coworkPrice = parseInt(s.price_coworking_hour ?? "300", 10);
   const coworkDayPrice = parseInt(s.price_coworking_day ?? "900", 10);
+  const kidsPrice = parseInt(s.price_kids_hour ?? "300", 10);
+
+  // Акция «3+1»: каждый 4-й час аренды лофта — в подарок
+  const freeHours = preset.type === "loft" ? Math.floor(hours / 4) : 0;
+  const paidHours = hours - freeHours;
 
   const estimate =
     preset.type === "loft"
-      ? weekend
-        ? null
-        : loftPrice * hours + cleaning
+      ? loftPrice * paidHours + cleaning
       : preset.type === "coworking"
         ? (hours >= 3 ? coworkDayPrice : coworkPrice * hours) * guests
         : null;
@@ -169,30 +172,19 @@ function BookingForm({
         name: name.trim(),
         phone: phone.trim(),
         date,
-        slot:
-          preset.type === "loft"
-            ? weekend
-              ? slot === "fullday"
-                ? "day"
-                : slot
-              : "fullday"
-            : undefined,
+        slot: preset.type === "loft" ? slot : undefined,
         startTime:
-          preset.type === "kids"
+          preset.type === "loft"
             ? startTime
-            : preset.type === "loft" && !weekend
+            : preset.type === "coworking"
               ? startTime
-              : preset.type === "coworking"
+              : preset.type === "kids"
                 ? startTime
                 : undefined,
         hours:
           preset.type === "kids"
-            ? undefined
-            : preset.type === "loft"
-              ? weekend
-                ? undefined
-                : hours
-              : hours,
+            ? undefined // у детской фиксированный вход, без почасовой
+            : hours,
         guests: preset.type === "coworking" ? guests : guests || undefined,
         comment: comment.trim() || undefined,
       },
@@ -231,11 +223,6 @@ function BookingForm({
             min={new Date().toISOString().slice(0, 10)}
             onChange={(e) => {
               setDate(e.target.value);
-              if (preset.type === "loft" && e.target.value) {
-                setSlot(
-                  isWeekendDate(e.target.value) ? "day" : "fullday",
-                );
-              }
             }}
             className="w-full min-w-0 rounded-xl"
           />
@@ -244,9 +231,9 @@ function BookingForm({
           )}
         </div>
 
-        {preset.type === "loft" && date && weekend && (
+        {preset.type === "loft" && (
           <div className="grid gap-2">
-            <Label>Слот (в выходные лофт работает по слотам)</Label>
+            <Label>Слот</Label>
             <div className="grid grid-cols-2 gap-2">
               {(
                 [
@@ -274,7 +261,7 @@ function BookingForm({
           </div>
         )}
 
-        {preset.type === "loft" && date && !weekend && (
+        {preset.type === "loft" && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="grid min-w-0 gap-2">
               <Label>Начало</Label>
@@ -428,19 +415,27 @@ function BookingForm({
           />
         </div>
 
-        {preset.type === "loft" && weekend && (
+        {preset.type === "loft" && freeHours > 0 && (
+          <div
+            className="rounded-2xl px-4 py-3 text-sm font-semibold"
+            style={{ background: BRAND.pink, color: BRAND.ink }}
+          >
+            🎁 Класс! Акция «3+1»: каждый 4-й час — в подарок. Уже вычли из
+            стоимости {freeHours} ч.
+          </div>
+        )}
+
+        {preset.type === "kids" && (
           <div
             className="rounded-2xl px-4 py-3 text-sm"
             style={{ background: BRAND.cream }}
           >
-            <span className="opacity-70">Тариф выходного дня: </span>
+            <span className="opacity-70">Вход в детскую: </span>
             <span className="font-display font-semibold">
-              {loftPrice.toLocaleString("ru-RU")} ₽/ч
+              {kidsPrice.toLocaleString("ru-RU")} ₽
             </span>
             <span className="mt-1 block text-xs opacity-60">
-              от 2-х часов + финальная уборка{" "}
-              {cleaning.toLocaleString("ru-RU")} ₽ · акция «3+1» при брони от
-              3 часов
+              Фиксированная цена за ребёнка, без тарификации по времени
             </span>
           </div>
         )}
@@ -450,15 +445,19 @@ function BookingForm({
             className="rounded-2xl px-4 py-3 text-sm"
             style={{ background: BRAND.cream }}
           >
-            <span className="opacity-70">Предварительная стоимость: </span>
+            <span className="opacity-70">
+              {preset.type === "loft" ? "Итого: " : "Предварительная стоимость: "}
+            </span>
             <span className="font-display font-semibold">
-              ~{estimate.toLocaleString("ru-RU")} ₽
+              {estimate.toLocaleString("ru-RU")} ₽
             </span>
             {preset.type === "loft" && (
               <span className="mt-1 block text-xs opacity-60">
-                {weekend
-                  ? `${loftPrice.toLocaleString("ru-RU")} ₽/ч × ${hours} ч + уборка ${cleaning.toLocaleString("ru-RU")} ₽ (итог уточнит администратор)`
-                  : `${loftPrice.toLocaleString("ru-RU")} ₽/ч × ${hours} ч + уборка ${cleaning.toLocaleString("ru-RU")} ₽ · акция 3+1 применяется при подтверждении`}
+                {loftPrice.toLocaleString("ru-RU")} ₽/ч × {paidHours} ч
+                {freeHours > 0 && ` (+ ${freeHours} ч в подарок по акции «3+1»)`}
+                {" · "}* Финальная уборка и вынос мусора —{" "}
+                {cleaning.toLocaleString("ru-RU")} ₽ за весь праздник. Вы
+                просто забираете подарки, порядок — на нас.
               </span>
             )}
           </div>

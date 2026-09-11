@@ -18,7 +18,7 @@ import { BRAND } from "@/lib/site";
 import HomeScreen from "./screens/Home";
 import MenuScreen from "./screens/Menu";
 import BonusesScreen from "./screens/Bonuses";
-import EventsScreen from "./screens/Events";
+import EventsScreen, { BookingSheet } from "./screens/Events";
 import ProfileScreen from "./screens/Profile";
 import LoginScreen from "./screens/Login";
 
@@ -34,6 +34,7 @@ export default function PwaApp() {
   const [tab, setTab] = useState<PwaTab>("home");
   const [customerToken, setTokenState] = useState(getCustomerToken());
   const [loginOpen, setLoginOpen] = useState(false);
+  const [bookingOpen, setBookingOpen] = useState(false);
 
   const trackMutation = trpc.pwa.track.useMutation();
   const track = useCallback(
@@ -65,8 +66,14 @@ export default function PwaApp() {
       },
       track,
       openLogin: () => setLoginOpen(true),
+      openBooking: () => {
+        track("pwa_booking_start");
+        setBookingOpen(true);
+      },
+      closeBooking: () => setBookingOpen(false),
+      bookingOpen,
     }),
-    [tab, customerToken, track],
+    [tab, customerToken, track, bookingOpen],
   );
 
   const authed = customerToken.length >= 10;
@@ -131,6 +138,8 @@ export default function PwaApp() {
               </div>
             </div>
           )}
+
+          {bookingOpen && <BookingSheet onClose={() => setBookingOpen(false)} />}
         </div>
       </div>
     </PwaContext.Provider>

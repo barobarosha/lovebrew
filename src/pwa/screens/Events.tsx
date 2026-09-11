@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Gift, Ticket, X } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { usePwa } from "../store";
 import {
@@ -20,14 +20,30 @@ const TYPE_META: Record<BookingType, { title: string; desc: string }> = {
 };
 
 export default function EventsScreen() {
-  const { track } = usePwa();
+  const { track, openBooking, customerToken, openLogin } = usePwa();
   const events = trpc.pwa.events.useQuery(undefined, { staleTime: 60_000 });
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const utils = trpc.useUtils();
+  const [registered, setRegistered] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     track("pwa_events_view");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const register = trpc.pwa.registerEvent.useMutation({
+    onSuccess: (_r, vars) => {
+      setRegistered((prev) => ({ ...prev, [vars.eventId]: true }));
+      utils.pwa.myEventRegistrations.invalidate();
+    },
+  });
+  const myRegs = trpc.pwa.myEventRegistrations.useQuery(
+    { token: customerToken },
+    { enabled: customerToken.length >= 10, staleTime: 30_000 },
+  );
+  const myRegEventIds = useMemo(
+    () => new Set((myRegs.data ?? []).filter((r) => r.status !== "rejected").map((r) => r.eventId)),
+    [myRegs.data],
+  );
 
   return (
     <div className="px-4 pt-6">
@@ -36,10 +52,7 @@ export default function EventsScreen() {
       </div>
 
       <button
-        onClick={() => {
-          track("pwa_booking_start");
-          setSheetOpen(true);
-        }}
+        onClick={openBooking}
         className="font-display mt-4 w-full rounded-full py-4 text-base font-bold uppercase text-white"
         style={{ background: BRAND.ink }}
       >
@@ -68,7 +81,54 @@ export default function EventsScreen() {
                 {e.description}
               </p>
             )}
-            {e.price && <p className="mt-2 text-sm font-bold">{e.price}</p>}
+            <div className="mt-2 flex items-center justify-between gap-2">
+              {e.price && <p className="text-sm font-bold">{e.price}</p>}
+              {e.registrationOpen && (
+                <button
+                  disabled={
+                    register.isPending ||
+                    registered[e.id] ||
+                    myRegEventIds.has(e.id)
+                  }
+                  onClick={() => {
+                    if (customerToken.length < 10) {
+                      openLogin();
+                      return;
+                    }
+                    register.mutate({ token: customerToken, eventId: e.id });
+                  }}
+                  className="ml-auto flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold uppercase disabled:opacity-60"
+                  style={{
+                    background:
+                      registered[e.id] || myRegEventIds.has(e.id)
+                        ? BRAND.sage
+                        : BRAND.pink,
+                    color: BRAND.ink,
+                  }}
+                >
+                  {registered[e.id] || myRegEventIds.has(e.id) ? (
+                    <>
+                      <Check size={14} /> Вы записаны
+                    </>
+                  ) : (
+                    <>
+                      <Ticket size={14} />
+                      {register.isPending ? "Записываем…" : "Записаться"}
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+            {registered[e.id] && (
+              <p className="mt-2 text-xs" style={{ color: BRAND.sageDeep }}>
+                Заявка отправлена — администратор подтвердит запись
+              </p>
+            )}
+            {register.error && !registered[e.id] && (
+              <p className="mt-2 text-xs font-medium text-red-700">
+                {register.error.message}
+              </p>
+            )}
           </div>
         ))}
         {!events.isLoading && !events.data?.upcoming.length && (
@@ -77,15 +137,13 @@ export default function EventsScreen() {
           </p>
         )}
       </div>
-
-      {sheetOpen && <BookingSheet onClose={() => setSheetOpen(false)} />}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
 
-function BookingSheet({ onClose }: { onClose: () => void }) {
+export function BookingSheet({ onClose }: { onClose: () => void }) {
   const { customerToken, openLogin } = usePwa();
   const utils = trpc.useUtils();
   const content = trpc.site.content.useQuery(undefined, { staleTime: 60_000 });
@@ -122,21 +180,25 @@ function BookingSheet({ onClose }: { onClose: () => void }) {
   const loftHourPrice = Number(
     weekend ? s.price_loft_weekend || 3500 : s.price_loft_weekday || 3000,
   );
+  const cleaning = Number(s.price_cleaning || 1500);
   const coworkHour = Number(s.price_coworking_hour || 300);
   const coworkDay = Number(s.price_coworking_day || 900);
-  const kidsHour = Number(s.price_kids_hour || 300);
+  const kidsPrice = Number(s.price_kids_hour || 300);
+
+  // Акция «3+1»: каждый 4-й час аренды лофта — в подарок
+  const freeHours = type === "loft" ? Math.floor(hours / 4) : 0;
+  const paidHours = hours - freeHours;
 
   const estimate = useMemo(() => {
-    if (type === "loft") return loftHourPrice * hours;
+    if (type === "loft") return loftHourPrice * paidHours + cleaning;
     if (type === "coworking")
       return (hours >= 3 ? coworkDay : coworkHour * hours) * guests;
-    return kidsHour * hours;
-  }, [type, hours, guests, loftHourPrice, coworkHour, coworkDay, kidsHour]);
+    return kidsPrice; // детская — фиксированный вход
+  }, [type, hours, guests, paidHours, loftHourPrice, cleaning, coworkHour, coworkDay, kidsPrice]);
 
   const canSubmit =
     !!date &&
     (type !== "loft" || !!slot) &&
-    (type === "loft" || !!startTime) &&
     customerToken.length >= 10;
 
   const submit = () => {
@@ -145,10 +207,10 @@ function BookingSheet({ onClose }: { onClose: () => void }) {
       token: customerToken,
       type,
       date,
-      slot: type === "loft" ? (slot as "day" | "evening" | "fullday") : undefined,
+      slot: type === "loft" ? (slot as "day" | "evening") : undefined,
       startTime: type === "loft" ? undefined : startTime,
-      hours,
-      guests: type === "kids" ? undefined : guests,
+      hours: type === "kids" ? undefined : hours,
+      guests: type === "loft" || type === "coworking" ? guests : guests,
       comment: comment || undefined,
     });
   };
@@ -305,12 +367,11 @@ function BookingSheet({ onClose }: { onClose: () => void }) {
 
                 {type === "loft" && (
                   <div className="flex gap-2">
-                    {(weekend
-                      ? [
-                          ["day", "День · до 15:00"],
-                          ["evening", "Вечер · с 16:00"],
-                        ]
-                      : [["fullday", "Весь день"]]
+                    {(
+                      [
+                        ["day", "День · до 15:00"],
+                        ["evening", "Вечер · с 16:00"],
+                      ] as const
                     ).map(([id, label]) => {
                       const st = dayInfo?.loft[id];
                       const disabled = st !== "available";
@@ -327,6 +388,9 @@ function BookingSheet({ onClose }: { onClose: () => void }) {
                           {label}
                           {disabled && st === "booked" && (
                             <span className="block text-[10px] font-medium">занято</span>
+                          )}
+                          {disabled && st === "blocked" && (
+                            <span className="block text-[10px] font-medium">закрыто</span>
                           )}
                         </button>
                       );
@@ -358,30 +422,31 @@ function BookingSheet({ onClose }: { onClose: () => void }) {
                   </div>
                 )}
 
-                <div className="flex gap-2">
-                  <div className="flex-1 rounded-2xl p-3" style={{ background: BRAND.white }}>
-                    <p className="text-xs" style={{ color: BRAND.sageDeep }}>
-                      Часов
-                    </p>
-                    <div className="mt-1 flex items-center justify-between">
-                      <button
-                        onClick={() => setHours(Math.max(type === "loft" ? 2 : 1, hours - 1))}
-                        className="h-8 w-8 rounded-full font-bold"
-                        style={{ background: BRAND.creamDeep }}
-                      >
-                        −
-                      </button>
-                      <span className="text-lg font-extrabold">{hours}</span>
-                      <button
-                        onClick={() => setHours(Math.min(12, hours + 1))}
-                        className="h-8 w-8 rounded-full font-bold"
-                        style={{ background: BRAND.creamDeep }}
-                      >
-                        +
-                      </button>
+                {/* Часы — только для лофта и коворкинга; у детской фиксированный вход */}
+                {type !== "kids" ? (
+                  <div className="flex gap-2">
+                    <div className="flex-1 rounded-2xl p-3" style={{ background: BRAND.white }}>
+                      <p className="text-xs" style={{ color: BRAND.sageDeep }}>
+                        Часов
+                      </p>
+                      <div className="mt-1 flex items-center justify-between">
+                        <button
+                          onClick={() => setHours(Math.max(type === "loft" ? 2 : 1, hours - 1))}
+                          className="h-8 w-8 rounded-full font-bold"
+                          style={{ background: BRAND.creamDeep }}
+                        >
+                          −
+                        </button>
+                        <span className="text-lg font-extrabold">{hours}</span>
+                        <button
+                          onClick={() => setHours(Math.min(12, hours + 1))}
+                          className="h-8 w-8 rounded-full font-bold"
+                          style={{ background: BRAND.creamDeep }}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  {type !== "kids" && (
                     <div className="flex-1 rounded-2xl p-3" style={{ background: BRAND.white }}>
                       <p className="text-xs" style={{ color: BRAND.sageDeep }}>
                         {type === "loft" ? "Гостей" : "Мест"}
@@ -404,8 +469,33 @@ function BookingSheet({ onClose }: { onClose: () => void }) {
                         </button>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <div className="flex-1 rounded-2xl p-3" style={{ background: BRAND.white }}>
+                      <p className="text-xs" style={{ color: BRAND.sageDeep }}>
+                        Детей
+                      </p>
+                      <div className="mt-1 flex items-center justify-between">
+                        <button
+                          onClick={() => setGuests(Math.max(1, guests - 1))}
+                          className="h-8 w-8 rounded-full font-bold"
+                          style={{ background: BRAND.creamDeep }}
+                        >
+                          −
+                        </button>
+                        <span className="text-lg font-extrabold">{guests}</span>
+                        <button
+                          onClick={() => setGuests(Math.min(15, guests + 1))}
+                          className="h-8 w-8 rounded-full font-bold"
+                          style={{ background: BRAND.creamDeep }}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <input
                   value={comment}
@@ -426,15 +516,57 @@ function BookingSheet({ onClose }: { onClose: () => void }) {
                   </p>
                 )}
 
-                <div
-                  className="flex items-center justify-between rounded-2xl p-4"
-                  style={{ background: BRAND.white }}
-                >
-                  <p className="text-sm font-semibold">Примерно</p>
-                  <p className="font-display text-xl font-extrabold">
-                    {estimate.toLocaleString("ru-RU")} ₽
+                {type === "loft" && freeHours > 0 && (
+                  <p
+                    className="flex items-start gap-2 rounded-2xl p-3 text-xs font-semibold leading-snug"
+                    style={{ background: BRAND.pink, color: BRAND.ink }}
+                  >
+                    <Gift size={16} className="mt-0.5 shrink-0" />
+                    Класс! Акция «3+1»: каждый 4-й час — в подарок. Уже вычли из
+                    стоимости {freeHours} ч.
                   </p>
-                </div>
+                )}
+
+                {/* Цена */}
+                {type === "kids" ? (
+                  <div
+                    className="rounded-2xl p-4"
+                    style={{ background: BRAND.white }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">Вход в детскую</p>
+                      <p className="font-display text-xl font-extrabold">
+                        {kidsPrice.toLocaleString("ru-RU")} ₽
+                      </p>
+                    </div>
+                    <p className="mt-1 text-[11px]" style={{ color: BRAND.sageDeep }}>
+                      Фиксированная цена, без тарификации по времени
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    className="rounded-2xl p-4"
+                    style={{ background: BRAND.white }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">
+                        {type === "loft" ? "Итого" : "Примерно"}
+                      </p>
+                      <p className="font-display text-xl font-extrabold">
+                        {estimate.toLocaleString("ru-RU")} ₽
+                      </p>
+                    </div>
+                    {type === "loft" && (
+                      <p className="mt-1 text-[11px] leading-snug" style={{ color: BRAND.sageDeep }}>
+                        * Включена финальная уборка и вынос мусора —{" "}
+                        {cleaning.toLocaleString("ru-RU")} ₽ за весь праздник.
+                        Вы просто забираете подарки, порядок — на нас.
+                        {freeHours > 0 &&
+                          ` Акция «3+1» применена: оплачиваете ${paidHours} из ${hours} ч.`}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {error && (
                   <p className="text-center text-sm font-medium text-red-700">{error}</p>

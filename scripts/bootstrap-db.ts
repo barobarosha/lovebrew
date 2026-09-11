@@ -106,6 +106,15 @@ const DDL: string[] = [
     meta TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS event_registrations (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    event_id INT NOT NULL,
+    customer_id INT,
+    name VARCHAR(120) NOT NULL,
+    phone VARCHAR(40) NOT NULL,
+    status ENUM('new','confirmed','rejected') NOT NULL DEFAULT 'new',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
 ];
 
 // Колонки, которые могли появиться позже у существующих таблиц
@@ -120,6 +129,25 @@ const LATE_COLUMNS: { table: string; column: string; ddl: string }[] = [
     column: "source",
     ddl: "ALTER TABLE bookings ADD COLUMN source VARCHAR(10) NOT NULL DEFAULT 'site'",
   },
+  {
+    table: "events",
+    column: "registration_open",
+    ddl: "ALTER TABLE events ADD COLUMN registration_open BOOLEAN NOT NULL DEFAULT FALSE",
+  },
+];
+
+// Колонки, тип которых мог измениться (VARCHAR → TEXT для data-URI картинок)
+const LATE_MODIFIES: { table: string; column: string; ddl: string }[] = [
+  {
+    table: "menu_items",
+    column: "image_url",
+    ddl: "ALTER TABLE menu_items MODIFY COLUMN image_url TEXT",
+  },
+  {
+    table: "events",
+    column: "image_url",
+    ddl: "ALTER TABLE events MODIFY COLUMN image_url TEXT",
+  },
 ];
 
 async function main() {
@@ -133,6 +161,16 @@ async function main() {
     if (!names.includes(c.column)) {
       await conn.query(c.ddl);
       console.log(`+ колонка ${c.table}.${c.column}`);
+    }
+  }
+  for (const m of LATE_MODIFIES) {
+    const [cols] = await conn.query(`SHOW COLUMNS FROM ${m.table}`);
+    const col = (cols as { Field: string; Type: string }[]).find(
+      (r) => r.Field === m.column,
+    );
+    if (col && !col.Type.toLowerCase().startsWith("text")) {
+      await conn.query(m.ddl);
+      console.log(`~ тип ${m.table}.${m.column} → TEXT`);
     }
   }
   console.log("Схема БД готова");

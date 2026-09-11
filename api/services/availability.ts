@@ -17,9 +17,9 @@ export function todayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Slots that exist for a given date */
-export function slotsForDate(dateStr: string): LoftSlotId[] {
-  return isWeekend(dateStr) ? ["day", "evening"] : ["fullday"];
+/** Slots that exist for a given date — лофт работает по слотам «день»/«вечер» каждый день */
+export function slotsForDate(_dateStr: string): LoftSlotId[] {
+  return ["day", "evening"];
 }
 
 function toMinutes(t: string): number {
