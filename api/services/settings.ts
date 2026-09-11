@@ -29,6 +29,9 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   qr_login: "",
   qr_password: "",
   qr_account_guid: "", // GUID типа бонусного счёта (можно оставить пустым — возьмём первый)
+  // Пилот: "1" — код входа показывается в приложении (SMS-шлюз не подключён).
+  // После подключения SMS обязательно поставить "0".
+  otp_debug_mode: "1",
 };
 
 export const PUBLIC_SETTING_KEYS = [

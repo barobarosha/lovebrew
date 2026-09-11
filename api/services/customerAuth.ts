@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { getDb } from "../queries/connection";
 import { customers, customerSessions, otpCodes } from "@db/schema";
 import { getRestoProvider } from "../quickresto/provider";
+import { getAllSettings } from "./settings";
 
 export type Customer = typeof customers.$inferSelect;
 
@@ -39,13 +40,18 @@ export async function requestOtp(rawPhone: string) {
   }
   const db = getDb();
   await db.delete(otpCodes).where(eq(otpCodes.phone, phone));
-  const code = String(randomInt(1000, 9999));
+  const code = String(randomInt(1000, 10000));
   await db.insert(otpCodes).values({
     phone,
     code,
     expiresAt: new Date(Date.now() + OTP_TTL_MS),
   });
-  return { phone, debugCode: code };
+  // Пилотный режим: SMS-шлюз не подключён, код показываем в интерфейсе.
+  // Отключается настройкой otp_debug_mode="0" в админке (обязательно
+  // выключить после подключения SMS — иначе вход по чужому номеру возможен).
+  const s = await getAllSettings();
+  const debug = s.otp_debug_mode !== "0";
+  return { phone, debugCode: debug ? code : null };
 }
 
 export async function verifyOtp(rawPhone: string, code: string, name?: string) {

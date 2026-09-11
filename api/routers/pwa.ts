@@ -21,6 +21,7 @@ import {
   checkLoftAvailability,
 } from "../services/availability";
 import { notifyAdminNewBooking } from "../services/telegram";
+import { clientIp, rateLimitOrThrow } from "../lib/rateLimit";
 
 const optionalToken = { token: z.string().optional() };
 const withToken = { token: z.string().min(10) };
@@ -34,7 +35,11 @@ export const pwaRouter = createRouter({
   // ---------- Auth (телефон + код) ----------
   requestOtp: publicQuery
     .input(z.object({ phone: z.string().min(6).max(30) }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      const ip = clientIp(ctx.req);
+      rateLimitOrThrow(`otp-req:ip:${ip}`, 15, 10 * 60 * 1000);
+      const phoneKey = input.phone.replace(/\D/g, "").slice(-10) || input.phone;
+      rateLimitOrThrow(`otp-req:phone:${phoneKey}`, 3, 10 * 60 * 1000);
       return requestOtp(input.phone);
     }),
 
@@ -42,11 +47,12 @@ export const pwaRouter = createRouter({
     .input(
       z.object({
         phone: z.string().min(6).max(30),
-        code: z.string().min(4).max(6),
+        code: z.string().min(4, "Введите 4-значный код").max(6),
         name: z.string().max(120).optional(),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      rateLimitOrThrow(`otp-verify:ip:${clientIp(ctx.req)}`, 20, 10 * 60 * 1000);
       const { token, customer } = await verifyOtp(
         input.phone,
         input.code,
@@ -271,7 +277,8 @@ export const pwaRouter = createRouter({
         comment: z.string().max(1000).optional(),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      rateLimitOrThrow(`pwa-booking:ip:${clientIp(ctx.req)}`, 10, 10 * 60 * 1000);
       const customer = await assertCustomer(input.token);
       const name = customer.name || "Гость Лавбрю";
       const phone = formatPhone(customer.phone);
@@ -360,7 +367,8 @@ export const pwaRouter = createRouter({
         token: z.string().optional(),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      rateLimitOrThrow(`track:ip:${clientIp(ctx.req)}`, 120, 10 * 60 * 1000);
       const customer = input.token
         ? await getCustomerByToken(input.token)
         : null;

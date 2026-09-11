@@ -22,7 +22,7 @@ export default function LoginScreen({
 
   const requestOtp = trpc.pwa.requestOtp.useMutation({
     onSuccess: (r) => {
-      setDebugCode(r.debugCode);
+      setDebugCode(r.debugCode ?? "");
       setStep("code");
       setError("");
     },

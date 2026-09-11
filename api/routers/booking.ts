@@ -8,6 +8,7 @@ import {
   checkLoftAvailability,
 } from "../services/availability";
 import { notifyAdminNewBooking } from "../services/telegram";
+import { clientIp, rateLimitOrThrow } from "../lib/rateLimit";
 
 const phoneRegex = /^[+\d][\d\s()\-]{6,20}$/;
 
@@ -18,18 +19,21 @@ export const bookingRouter = createRouter({
         type: z.enum(["loft", "coworking", "kids"]),
         name: z.string().min(2, "Укажите имя").max(120),
         phone: z.string().regex(phoneRegex, "Укажите корректный телефон"),
-        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, "Выберите дату"),
         slot: z.enum(["day", "evening", "fullday"]).optional(),
         startTime: z
           .string()
-          .regex(/^\d{2}:\d{2}$/)
+          .regex(/^\d{2}:\d{2}$/, "Укажите время")
           .optional(),
         hours: z.number().int().min(1).max(24).optional(),
         guests: z.number().int().min(1).max(100).optional(),
         comment: z.string().max(1000).optional(),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      rateLimitOrThrow(`booking:ip:${clientIp(ctx.req)}`, 10, 10 * 60 * 1000);
       if (input.type === "loft") {
         const slot = input.slot ?? "fullday";
         const check = await checkLoftAvailability(input.date, slot);

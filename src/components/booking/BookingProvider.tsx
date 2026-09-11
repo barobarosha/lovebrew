@@ -71,6 +71,9 @@ export function BookingProvider({ children }: { children: ReactNode }) {
         <DialogContent
           className="max-h-[90vh] overflow-y-auto rounded-3xl border-0 sm:max-w-lg"
           style={{ background: BRAND.white, color: BRAND.ink }}
+          // Не отдаём фокус первому полю при открытии — иначе на iOS/Android
+          // сразу выскакивает нативный календарь у input[type=date]
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           {preset && !done && (
             <BookingForm
@@ -234,7 +237,7 @@ function BookingForm({
                 );
               }
             }}
-            className="rounded-xl"
+            className="w-full min-w-0 rounded-xl"
           />
           {date && (
             <p className="text-xs opacity-60">{formatDateRu(date)}</p>
@@ -272,8 +275,8 @@ function BookingForm({
         )}
 
         {preset.type === "loft" && date && !weekend && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-2">
               <Label>Начало</Label>
               <Input
                 type="time"
@@ -281,10 +284,10 @@ function BookingForm({
                 min="08:00"
                 max="21:00"
                 onChange={(e) => setStartTime(e.target.value)}
-                className="rounded-xl"
+                className="w-full min-w-0 rounded-xl"
               />
             </div>
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               <Label>Часов (от 2)</Label>
               <Input
                 type="number"
@@ -292,7 +295,7 @@ function BookingForm({
                 max={13}
                 value={hours}
                 onChange={(e) => setHours(Math.max(2, +e.target.value || 2))}
-                className="rounded-xl"
+                className="w-full min-w-0 rounded-xl"
               />
             </div>
           </div>
@@ -312,8 +315,8 @@ function BookingForm({
         )}
 
         {preset.type === "coworking" && (
-          <div className="grid grid-cols-3 gap-3">
-            <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid min-w-0 gap-2">
               <Label>Начало</Label>
               <Input
                 type="time"
@@ -321,10 +324,10 @@ function BookingForm({
                 min="08:00"
                 max="20:00"
                 onChange={(e) => setStartTime(e.target.value)}
-                className="rounded-xl"
+                className="w-full min-w-0 rounded-xl"
               />
             </div>
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               <Label>Часов</Label>
               <Input
                 type="number"
@@ -332,10 +335,10 @@ function BookingForm({
                 max={12}
                 value={hours}
                 onChange={(e) => setHours(Math.max(1, +e.target.value || 1))}
-                className="rounded-xl"
+                className="w-full min-w-0 rounded-xl"
               />
             </div>
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               <Label>Мест</Label>
               <Input
                 type="number"
@@ -343,15 +346,15 @@ function BookingForm({
                 max={10}
                 value={guests}
                 onChange={(e) => setGuests(Math.max(1, +e.target.value || 1))}
-                className="rounded-xl"
+                className="w-full min-w-0 rounded-xl"
               />
             </div>
           </div>
         )}
 
         {preset.type === "kids" && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-2">
               <Label>Время визита</Label>
               <Input
                 type="time"
@@ -359,10 +362,10 @@ function BookingForm({
                 min="08:00"
                 max="15:00"
                 onChange={(e) => setStartTime(e.target.value)}
-                className="rounded-xl"
+                className="w-full min-w-0 rounded-xl"
               />
             </div>
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               <Label>Детей</Label>
               <Input
                 type="number"
@@ -370,7 +373,7 @@ function BookingForm({
                 max={15}
                 value={guests}
                 onChange={(e) => setGuests(Math.max(1, +e.target.value || 1))}
-                className="rounded-xl"
+                className="w-full min-w-0 rounded-xl"
               />
             </div>
           </div>

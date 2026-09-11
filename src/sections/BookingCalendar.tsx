@@ -150,13 +150,24 @@ export function BookingCalendar() {
                     : undefined,
                 }}
               >
-                <span
-                  className="font-display text-sm font-semibold sm:text-base"
-                  style={{
-                    color: isWeekendDate(date) && !isPast ? "#C4654F" : BRAND.ink,
-                  }}
-                >
-                  {dayNum}
+                <span className="flex items-center gap-0.5">
+                  <span
+                    className="font-display text-sm font-semibold sm:text-base"
+                    style={{
+                      color: isWeekendDate(date) && !isPast ? "#C4654F" : BRAND.ink,
+                    }}
+                  >
+                    {dayNum}
+                  </span>
+                  {d && d.events.length > 0 && (
+                    <span
+                      className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-[8px] leading-none"
+                      style={{ background: BRAND.pink, color: BRAND.ink }}
+                      title="В этот день есть мероприятие"
+                    >
+                      ★
+                    </span>
+                  )}
                 </span>
                 {d && !isPast && (
                   <span className="mt-1 flex flex-wrap items-center justify-center gap-1">
@@ -168,14 +179,6 @@ export function BookingCalendar() {
                         title={`${slot}: ${SLOT_STYLE[st].label}`}
                       />
                     ))}
-                  </span>
-                )}
-                {d && d.events.length > 0 && (
-                  <span
-                    className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px]"
-                    style={{ background: BRAND.pink, color: BRAND.ink }}
-                  >
-                    ★
                   </span>
                 )}
               </button>

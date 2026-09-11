@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plug, Send } from "lucide-react";
 
-const GROUPS: { title: string; keys: { key: string; label: string; hint?: string; multiline?: boolean }[] }[] = [
+const GROUPS: { title: string; keys: { key: string; label: string; hint?: string; multiline?: boolean; secret?: boolean }[] }[] = [
   {
     title: "Контакты и адрес",
     keys: [
@@ -41,7 +41,7 @@ const GROUPS: { title: string; keys: { key: string; label: string; hint?: string
   {
     title: "Telegram-уведомления",
     keys: [
-      { key: "telegram_bot_token", label: "Токен бота", hint: "Создайте бота через @BotFather и вставьте токен" },
+      { key: "telegram_bot_token", label: "Токен бота", hint: "Создайте бота через @BotFather и вставьте токен", secret: true },
       { key: "telegram_chat_id", label: "Chat ID", hint: "Узнать можно через @userinfobot — напишите боту и получите id" },
     ],
   },
@@ -51,8 +51,14 @@ const GROUPS: { title: string; keys: { key: string; label: string; hint?: string
       { key: "qr_enabled", label: "Интеграция включена (1/0)", hint: "1 — приложение берёт меню и бонусы из Quick Resto; 0 — работает на данных сайта" },
       { key: "qr_layer", label: "Имя облака", hint: "Например «lavbrew» → lavbrew.quickresto.ru" },
       { key: "qr_login", label: "Логин Back Office API" },
-      { key: "qr_password", label: "Пароль Back Office API" },
+      { key: "qr_password", label: "Пароль Back Office API", secret: true },
       { key: "qr_account_guid", label: "GUID типа бонусного счёта", hint: "Можно оставить пустым — возьмём первый из списка автоматически" },
+    ],
+  },
+  {
+    title: "Безопасность",
+    keys: [
+      { key: "otp_debug_mode", label: "Пилотный вход (1/0)", hint: "1 — код входа показывается в приложении (SMS-шлюз не подключён). После подключения SMS обязательно поставьте 0!" },
     ],
   },
 ];
@@ -115,6 +121,8 @@ export function SettingsTab({ token }: { token: string }) {
                   />
                 ) : (
                   <Input
+                    type={k.secret ? "password" : "text"}
+                    autoComplete="off"
                     className="rounded-xl"
                     value={values[k.key] ?? ""}
                     onChange={(e) => setValues({ ...values, [k.key]: e.target.value })}

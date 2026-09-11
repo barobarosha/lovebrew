@@ -4,7 +4,7 @@ import { BRAND } from "@/lib/site";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Lock, LogOut } from "lucide-react";
+import { Loader2, Lock, LogOut, ShieldAlert } from "lucide-react";
 import { BookingsTab } from "./admin/BookingsTab";
 import { SlotsTab } from "./admin/SlotsTab";
 import { EventsTab } from "./admin/EventsTab";
@@ -85,6 +85,7 @@ export default function Admin() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        <SecurityBanner token={token} />
         <Tabs defaultValue="bookings">
           <TabsList className="mb-6 flex h-auto flex-wrap justify-start gap-1 rounded-2xl p-1" style={{ background: BRAND.creamDeep }}>
             {[
@@ -128,6 +129,37 @@ export default function Admin() {
   );
 }
 
+function SecurityBanner({ token }: { token: string }) {
+  const status = trpc.admin.securityStatus.useQuery({ token });
+  if (!status.data) return null;
+  const { defaultPassword, otpDebugMode } = status.data;
+  if (!defaultPassword && !otpDebugMode) return null;
+  return (
+    <div className="mb-6 space-y-2">
+      {defaultPassword && (
+        <div className="flex items-start gap-3 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-800">
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+          <p>
+            <b>Действует пароль по умолчанию.</b> Смените его: вкладка
+            «Настройки» → «Пароль администратора». Иначе в админку сможет войти
+            любой.
+          </p>
+        </div>
+      )}
+      {otpDebugMode && (
+        <div className="flex items-start gap-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
+          <p>
+            <b>Пилотный вход по коду включён</b> (otp_debug_mode): код
+            подтверждения показывается прямо в приложении. После подключения
+            SMS-шлюза выключите его в «Настройках».
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LoginScreen({ onLogin }: { onLogin: (t: string) => void }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +194,10 @@ function LoginScreen({ onLogin }: { onLogin: (t: string) => void }) {
           onSubmit={(e) => {
             e.preventDefault();
             setError(null);
+            if (!password.trim()) {
+              setError("Введите пароль");
+              return;
+            }
             login.mutate({ password });
           }}
         >

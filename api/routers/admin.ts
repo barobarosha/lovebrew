@@ -17,13 +17,15 @@ import {
   DEFAULT_SETTINGS,
 } from "../services/settings";
 import { getMonthCalendar, slotsForDate } from "../services/availability";
+import { clientIp, rateLimitOrThrow } from "../lib/rateLimit";
 
-const tokenInput = { token: z.string().min(10) };
+const tokenInput = { token: z.string().min(10, "Недействительная сессия") };
 
 export const adminRouter = createRouter({
   login: publicQuery
-    .input(z.object({ password: z.string().min(1) }))
-    .mutation(async ({ input }) => {
+    .input(z.object({ password: z.string().min(1, "Введите пароль") }))
+    .mutation(async ({ input, ctx }) => {
+      rateLimitOrThrow(`admin-login:${clientIp(ctx.req)}`, 10, 10 * 60 * 1000);
       const ok = await verifyAdminPassword(input.password);
       if (!ok) {
         throw new TRPCError({
@@ -50,7 +52,12 @@ export const adminRouter = createRouter({
     }),
 
   changePassword: publicQuery
-    .input(z.object({ ...tokenInput, newPassword: z.string().min(6) }))
+    .input(
+      z.object({
+        ...tokenInput,
+        newPassword: z.string().min(6, "Пароль — минимум 6 символов").max(100),
+      }),
+    )
     .mutation(async ({ input }) => {
       await assertAdmin(input.token);
       await changeAdminPassword(input.newPassword);
@@ -428,5 +435,19 @@ export const adminRouter = createRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: r.detail });
       }
       return { ok: true, mode: provider.mode, detail: r.detail };
+    }),
+
+  // Статус безопасности для баннера в админке
+  securityStatus: publicQuery
+    .input(z.object(tokenInput))
+    .query(async ({ input }) => {
+      await assertAdmin(input.token);
+      const all = await getAllSettings();
+      return {
+        // Пароль ни разу не меняли — действует пароль по умолчанию
+        defaultPassword: !all.admin_password_hash,
+        // Пилотный вход: код подтверждения показывается в приложении
+        otpDebugMode: all.otp_debug_mode !== "0",
+      };
     }),
 });
