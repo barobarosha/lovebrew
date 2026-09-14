@@ -120,7 +120,7 @@ export const adminRouter = createRouter({
         name: z.string().min(1).max(120),
         phone: z.string().max(40).default(""),
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-        slot: z.enum(["day", "evening", "fullday"]).optional(),
+        slot: z.enum(["day", "evening", "fullday", "unlimited"]).optional(),
         startTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
         hours: z.number().int().min(1).max(24).optional(),
         guests: z.number().int().min(1).max(100).optional(),
@@ -132,14 +132,20 @@ export const adminRouter = createRouter({
       await assertAdmin(input.token);
       const db = getDb();
       const normalized = normalizePhone(input.phone);
+      const kidsUnlimited = input.type === "kids" && input.slot === "unlimited";
       const [result] = await db.insert(bookings).values({
         type: input.type,
         name: input.name,
         phone: normalized ? formatPhone(normalized) : input.phone,
         date: input.date,
-        slot: input.type === "loft" ? (input.slot ?? "fullday") : null,
+        slot:
+          input.type === "loft"
+            ? (input.slot ?? "fullday")
+            : kidsUnlimited
+              ? "unlimited"
+              : null,
         startTime: input.startTime ?? null,
-        hours: input.hours ?? null,
+        hours: kidsUnlimited ? null : (input.hours ?? null),
         guests: input.guests ?? null,
         comment: input.comment ?? null,
         status: input.status,
@@ -164,7 +170,7 @@ export const adminRouter = createRouter({
         name: z.string().min(1, "Укажите имя").max(120),
         phone: z.string().max(40).default(""),
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Выберите дату"),
-        slot: z.enum(["day", "evening", "fullday"]).optional(),
+        slot: z.enum(["day", "evening", "fullday", "unlimited"]).optional(),
         startTime: z.string().regex(/^\d{2}:\d{2}$/, "Укажите время").optional(),
         hours: z.number().int().min(1).max(24).optional(),
         guests: z.number().int().min(1).max(100).optional(),
@@ -176,6 +182,7 @@ export const adminRouter = createRouter({
     .mutation(async ({ input }) => {
       await assertAdmin(input.token);
       const normalized = normalizePhone(input.phone);
+      const kidsUnlimited = input.type === "kids" && input.slot === "unlimited";
       await getDb()
         .update(bookings)
         .set({
@@ -183,9 +190,14 @@ export const adminRouter = createRouter({
           name: input.name,
           phone: normalized ? formatPhone(normalized) : input.phone,
           date: input.date,
-          slot: input.type === "loft" ? (input.slot ?? "day") : null,
+          slot:
+            input.type === "loft"
+              ? (input.slot ?? "day")
+              : kidsUnlimited
+                ? "unlimited"
+                : null,
           startTime: input.startTime ?? null,
-          hours: input.hours ?? null,
+          hours: kidsUnlimited ? null : (input.hours ?? null),
           guests: input.guests ?? null,
           comment: input.comment ?? null,
           adminNote: input.adminNote ?? null,

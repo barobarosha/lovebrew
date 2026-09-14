@@ -168,6 +168,8 @@ export function slotLabel(slot: string | null | undefined): string {  switch (sl
       return "вечерний (с 16:00)";
     case "fullday":
       return "весь день";
+    case "unlimited":
+      return "безлимит (до 15:00)";
     default:
       return "—";
   }

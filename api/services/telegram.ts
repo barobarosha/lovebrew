@@ -33,6 +33,8 @@ export function bookingSummaryLine(b: {
   let time = "";
   if (b.startTime && b.hours) {
     time = `${b.startTime}–${endTime(b.startTime, b.hours)}`;
+  } else if (b.slot === "unlimited") {
+    time = "безлимит до 15:00";
   } else if (b.startTime) {
     time = `с ${b.startTime}`;
   } else if (b.slot === "day") {

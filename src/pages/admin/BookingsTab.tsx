@@ -134,7 +134,7 @@ export function BookingsTab({ token }: { token: string }) {
                   {b.slot && ` · ${slotLabel(b.slot)}`}
                   {b.startTime && ` · с ${b.startTime}`}
                   {b.hours ? ` · ${b.hours} ч.` : ""}
-                  {b.guests ? ` · ${b.guests} гост./мест` : ""}
+                  {b.guests ? ` · ${b.guests} ${b.type === "kids" ? "дет." : "гост./мест"}` : ""}
                 </p>
                 {b.comment && (
                   <p className="mt-2 rounded-xl px-3 py-2 text-sm" style={{ background: BRAND.cream }}>
@@ -218,6 +218,7 @@ type FormState = {
   phone: string;
   date: string;
   slot: "day" | "evening";
+  kidsTariff: "hourly" | "unlimited";
   startTime: string;
   hours: number;
   guests: number;
@@ -232,6 +233,7 @@ const EMPTY_FORM: FormState = {
   phone: "",
   date: "",
   slot: "day",
+  kidsTariff: "hourly",
   startTime: "",
   hours: 2,
   guests: 1,
@@ -276,6 +278,7 @@ function BookingFormDialog({
             phone: initial.phone,
             date: initial.date,
             slot: initial.slot === "evening" ? "evening" : "day",
+            kidsTariff: initial.slot === "unlimited" ? "unlimited" : "hourly",
             startTime: initial.startTime ?? "",
             hours: initial.hours ?? 2,
             guests: initial.guests ?? 1,
@@ -297,9 +300,22 @@ function BookingFormDialog({
       name: form.name,
       phone: form.phone,
       date: form.date,
-      slot: form.type === "loft" ? form.slot : undefined,
-      startTime: form.startTime || undefined,
-      hours: form.type === "kids" ? undefined : form.hours,
+      slot:
+        form.type === "loft"
+          ? form.slot
+          : form.type === "kids" && form.kidsTariff === "unlimited"
+            ? ("unlimited" as const)
+            : undefined,
+      startTime:
+        form.type === "kids" && form.kidsTariff === "unlimited"
+          ? undefined
+          : form.startTime || undefined,
+      hours:
+        form.type === "kids"
+          ? form.kidsTariff === "hourly"
+            ? form.hours
+            : undefined
+          : form.hours,
       guests: form.guests,
       comment: form.comment || undefined,
     };
@@ -378,7 +394,20 @@ function BookingFormDialog({
                 </select>
               </div>
             )}
-            {form.type !== "loft" && (
+            {form.type === "kids" && (
+              <div className="grid gap-1">
+                <Label>Тариф</Label>
+                <select
+                  className="h-9 rounded-xl border px-2 text-sm"
+                  value={form.kidsTariff}
+                  onChange={(e) => setForm({ ...form, kidsTariff: e.target.value as FormState["kidsTariff"] })}
+                >
+                  <option value="hourly">Почасовой</option>
+                  <option value="unlimited">Безлимит до 15:00</option>
+                </select>
+              </div>
+            )}
+            {form.type !== "loft" && !(form.type === "kids" && form.kidsTariff === "unlimited") && (
               <div className="grid gap-1">
                 <Label>Время</Label>
                 <Input type="time" className="rounded-xl" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
@@ -386,7 +415,7 @@ function BookingFormDialog({
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {form.type !== "kids" && (
+            {(form.type !== "kids" || form.kidsTariff === "hourly") && (
               <div className="grid gap-1">
                 <Label>Часов</Label>
                 <Input type="number" min={1} className="rounded-xl" value={form.hours} onChange={(e) => setForm({ ...form, hours: +e.target.value || 1 })} />

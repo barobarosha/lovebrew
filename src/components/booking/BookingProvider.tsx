@@ -137,6 +137,7 @@ function BookingForm({
   const [startTime, setStartTime] = useState("10:00");
   const [hours, setHours] = useState(2);
   const [guests, setGuests] = useState(1);
+  const [kidsTariff, setKidsTariff] = useState<"hourly" | "unlimited">("hourly");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [comment, setComment] = useState("");
@@ -151,6 +152,7 @@ function BookingForm({
   const coworkPrice = parseInt(s.price_coworking_hour ?? "300", 10);
   const coworkDayPrice = parseInt(s.price_coworking_day ?? "900", 10);
   const kidsPrice = parseInt(s.price_kids_hour ?? "300", 10);
+  const kidsUnlimitedPrice = parseInt(s.price_kids_unlimited ?? "1000", 10);
 
   // Акция «3+1»: каждый 4-й час аренды лофта — в подарок
   const freeHours = preset.type === "loft" ? Math.floor(hours / 4) : 0;
@@ -161,7 +163,9 @@ function BookingForm({
       ? loftPrice * paidHours + cleaning
       : preset.type === "coworking"
         ? (hours >= 3 ? coworkDayPrice : coworkPrice * hours) * guests
-        : null;
+        : kidsTariff === "unlimited"
+          ? kidsUnlimitedPrice * guests
+          : kidsPrice * hours * guests;
 
   const submit = () => {
     setError(null);
@@ -175,18 +179,21 @@ function BookingForm({
         name: name.trim(),
         phone: phone.trim(),
         date,
-        slot: preset.type === "loft" ? slot : undefined,
-        startTime:
+        slot:
           preset.type === "loft"
-            ? startTime
-            : preset.type === "coworking"
-              ? startTime
-              : preset.type === "kids"
-                ? startTime
-                : undefined,
+            ? slot
+            : preset.type === "kids" && kidsTariff === "unlimited"
+              ? ("unlimited" as const)
+              : undefined,
+        startTime:
+          preset.type === "kids" && kidsTariff === "unlimited"
+            ? undefined
+            : startTime,
         hours:
           preset.type === "kids"
-            ? undefined // у детской фиксированный вход, без почасовой
+            ? kidsTariff === "hourly"
+              ? hours
+              : undefined
             : hours,
         guests: preset.type === "coworking" ? guests : guests || undefined,
         comment: comment.trim() || undefined,
@@ -353,18 +360,69 @@ function BookingForm({
         )}
 
         {preset.type === "kids" && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="grid min-w-0 gap-2">
-              <Label>Время визита</Label>
-              <Input
-                type="time"
-                value={startTime}
-                min="08:00"
-                max="15:00"
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full min-w-0 rounded-xl"
-              />
+          <div className="grid gap-2">
+            <Label>Тариф (цена за 1 ребёнка)</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  ["hourly", `Почасовой · ${kidsPrice.toLocaleString("ru-RU")} ₽/час`],
+                  ["unlimited", `Безлимит до 15:00 · ${kidsUnlimitedPrice.toLocaleString("ru-RU")} ₽`],
+                ] as const
+              ).map(([v, l]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setKidsTariff(v)}
+                  className="rounded-xl border px-3 py-3 text-sm font-semibold transition-all"
+                  style={{
+                    background: kidsTariff === v ? BRAND.sageDeep : "transparent",
+                    color: kidsTariff === v ? BRAND.white : BRAND.ink,
+                    borderColor: kidsTariff === v ? BRAND.sageDeep : BRAND.creamDeep,
+                  }}
+                >
+                  {l}
+                </button>
+              ))}
             </div>
+            {kidsTariff === "unlimited" && (
+              <p className="text-xs opacity-60">
+                Свободный вход/выход + напиток из классического меню кофейни
+                любого объёма — бесплатно
+              </p>
+            )}
+          </div>
+        )}
+
+        {preset.type === "kids" && (
+          <div
+            className={`grid grid-cols-1 gap-3 ${kidsTariff === "hourly" ? "sm:grid-cols-3" : "sm:grid-cols-1"}`}
+          >
+            {kidsTariff === "hourly" && (
+              <>
+                <div className="grid min-w-0 gap-2">
+                  <Label>Начало визита</Label>
+                  <Input
+                    type="time"
+                    value={startTime}
+                    min="08:00"
+                    max="15:00"
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-full min-w-0 rounded-xl"
+                  />
+                </div>
+                <div className="grid min-w-0 gap-2">
+                  <Label>Часов</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={8}
+                    value={hours}
+                    onChange={(e) => setHours(Math.max(1, +e.target.value || 1))}
+                    className="w-full min-w-0 rounded-xl"
+                  />
+                </div>
+              </>
+            )}
             <div className="grid min-w-0 gap-2">
               <Label>Детей</Label>
               <Input
@@ -438,21 +496,6 @@ function BookingForm({
           </div>
         )}
 
-        {preset.type === "kids" && (
-          <div
-            className="rounded-2xl px-4 py-3 text-sm"
-            style={{ background: BRAND.cream }}
-          >
-            <span className="opacity-70">Вход в детскую: </span>
-            <span className="font-display font-semibold">
-              {kidsPrice.toLocaleString("ru-RU")} ₽
-            </span>
-            <span className="mt-1 block text-xs opacity-60">
-              Фиксированная цена за ребёнка, без тарификации по времени
-            </span>
-          </div>
-        )}
-
         {estimate !== null && (
           <div
             className="rounded-2xl px-4 py-3 text-sm"
@@ -471,6 +514,13 @@ function BookingForm({
                 {" · "}* Финальная уборка и вынос мусора —{" "}
                 {cleaning.toLocaleString("ru-RU")} ₽ за весь праздник. Вы
                 просто забираете подарки, порядок — на нас.
+              </span>
+            )}
+            {preset.type === "kids" && (
+              <span className="mt-1 block text-xs opacity-60">
+                {kidsTariff === "unlimited"
+                  ? `${kidsUnlimitedPrice.toLocaleString("ru-RU")} ₽ × ${guests} дет. · безлимит до 15:00`
+                  : `${kidsPrice.toLocaleString("ru-RU")} ₽/час × ${hours} ч × ${guests} дет.`}
               </span>
             )}
           </div>

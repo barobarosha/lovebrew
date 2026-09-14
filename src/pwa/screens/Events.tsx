@@ -163,6 +163,7 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
   const [startTime, setStartTime] = useState("10:00");
   const [hours, setHours] = useState(2);
   const [guests, setGuests] = useState(1);
+  const [kidsTariff, setKidsTariff] = useState<"hourly" | "unlimited">("hourly");
   const [comment, setComment] = useState("");
   const [goChat, setGoChat] = useState(true);
   const [done, setDone] = useState(false);
@@ -197,6 +198,7 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
   const coworkHour = Number(s.price_coworking_hour || 300);
   const coworkDay = Number(s.price_coworking_day || 900);
   const kidsPrice = Number(s.price_kids_hour || 300);
+  const kidsUnlimitedPrice = Number(s.price_kids_unlimited || 1000);
 
   // Акция «3+1»: каждый 4-й час аренды лофта — в подарок
   const freeHours = type === "loft" ? Math.floor(hours / 4) : 0;
@@ -206,8 +208,11 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
     if (type === "loft") return loftHourPrice * paidHours + cleaning;
     if (type === "coworking")
       return (hours >= 3 ? coworkDay : coworkHour * hours) * guests;
-    return kidsPrice; // детская — фиксированный вход
-  }, [type, hours, guests, paidHours, loftHourPrice, cleaning, coworkHour, coworkDay, kidsPrice]);
+    // детская: почасовой или безлимит до 15:00, цена × количество детей
+    return kidsTariff === "unlimited"
+      ? kidsUnlimitedPrice * guests
+      : kidsPrice * hours * guests;
+  }, [type, hours, guests, paidHours, loftHourPrice, cleaning, coworkHour, coworkDay, kidsPrice, kidsUnlimitedPrice, kidsTariff]);
 
   const canSubmit =
     !!date &&
@@ -220,10 +225,19 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
       token: customerToken,
       type,
       date,
-      slot: type === "loft" ? (slot as "day" | "evening") : undefined,
-      startTime: type === "loft" ? undefined : startTime,
-      hours: type === "kids" ? undefined : hours,
-      guests: type === "loft" || type === "coworking" ? guests : guests,
+      slot:
+        type === "loft"
+          ? (slot as "day" | "evening")
+          : type === "kids" && kidsTariff === "unlimited"
+            ? ("unlimited" as const)
+            : undefined,
+      startTime:
+        type === "loft" || (type === "kids" && kidsTariff === "unlimited")
+          ? undefined
+          : startTime,
+      hours:
+        type === "kids" ? (kidsTariff === "hourly" ? hours : undefined) : hours,
+      guests,
       comment: comment || undefined,
     });
   };
@@ -411,13 +425,56 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                   </div>
                 )}
 
-                {type !== "loft" && (
+                {type === "kids" && (
+                  <div>
+                    <p className="mb-1 text-xs" style={{ color: BRAND.sageDeep }}>
+                      Тариф (цена за 1 ребёнка)
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(
+                        [
+                          ["hourly", `Почасовой`, `${kidsPrice.toLocaleString("ru-RU")} ₽/час`],
+                          ["unlimited", `Безлимит до 15:00`, `${kidsUnlimitedPrice.toLocaleString("ru-RU")} ₽`],
+                        ] as const
+                      ).map(([v, label, price]) => (
+                        <button
+                          key={v}
+                          onClick={() => setKidsTariff(v)}
+                          className="rounded-2xl p-3 text-left"
+                          style={{
+                            background: kidsTariff === v ? BRAND.ink : BRAND.white,
+                            color: kidsTariff === v ? BRAND.white : BRAND.ink,
+                          }}
+                        >
+                          <p className="text-[13px] font-bold leading-tight">{label}</p>
+                          <p
+                            className="mt-1 text-[10px]"
+                            style={{ color: kidsTariff === v ? BRAND.creamDeep : BRAND.sageDeep }}
+                          >
+                            {price}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                    {kidsTariff === "unlimited" && (
+                      <p className="mt-2 text-[11px] leading-snug" style={{ color: BRAND.sageDeep }}>
+                        Свободный вход/выход + напиток из классического меню
+                        кофейни любого объёма — бесплатно
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {type !== "loft" && !(type === "kids" && kidsTariff === "unlimited") && (
                   <div>
                     <p className="mb-1 text-xs" style={{ color: BRAND.sageDeep }}>
                       Время начала
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"].map(
+                      {(type === "kids"
+                        ? ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00"]
+                        : ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"]
+                      ).map(
                         (t) => (
                           <button
                             key={t}
@@ -435,8 +492,8 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                   </div>
                 )}
 
-                {/* Часы — только для лофта и коворкинга; у детской фиксированный вход */}
-                {type !== "kids" ? (
+                {/* Часы: лофт, коворкинг и почасовой тариф детской */}
+                {type !== "kids" || kidsTariff === "hourly" ? (
                   <div className="flex gap-2">
                     <div className="flex-1 rounded-2xl p-3" style={{ background: BRAND.white }}>
                       <p className="text-xs" style={{ color: BRAND.sageDeep }}>
@@ -462,7 +519,7 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                     </div>
                     <div className="flex-1 rounded-2xl p-3" style={{ background: BRAND.white }}>
                       <p className="text-xs" style={{ color: BRAND.sageDeep }}>
-                        {type === "loft" ? "Гостей" : "Мест"}
+                        {type === "loft" ? "Гостей" : type === "kids" ? "Детей" : "Мест"}
                       </p>
                       <div className="mt-1 flex items-center justify-between">
                         <button
@@ -474,7 +531,7 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                         </button>
                         <span className="text-lg font-extrabold">{guests}</span>
                         <button
-                          onClick={() => setGuests(Math.min(type === "loft" ? 60 : 8, guests + 1))}
+                          onClick={() => setGuests(Math.min(type === "loft" ? 60 : type === "kids" ? 15 : 8, guests + 1))}
                           className="h-8 w-8 rounded-full font-bold"
                           style={{ background: BRAND.creamDeep }}
                         >
@@ -547,13 +604,15 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                     style={{ background: BRAND.white }}
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold">Вход в детскую</p>
+                      <p className="text-sm font-semibold">Итого</p>
                       <p className="font-display text-xl font-extrabold">
-                        {kidsPrice.toLocaleString("ru-RU")} ₽
+                        {estimate.toLocaleString("ru-RU")} ₽
                       </p>
                     </div>
                     <p className="mt-1 text-[11px]" style={{ color: BRAND.sageDeep }}>
-                      Фиксированная цена, без тарификации по времени
+                      {kidsTariff === "unlimited"
+                        ? `${kidsUnlimitedPrice.toLocaleString("ru-RU")} ₽ × ${guests} дет. · безлимит до 15:00, напиток из классического меню — бесплатно`
+                        : `${kidsPrice.toLocaleString("ru-RU")} ₽/час × ${hours} ч × ${guests} дет.`}
                     </p>
                   </div>
                 ) : (

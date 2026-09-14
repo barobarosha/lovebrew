@@ -133,25 +133,24 @@ export function KidsSection() {
                 <p className="font-display text-3xl font-bold">
                   {s.price_kids_hour ?? "300"} ₽
                 </p>
-                <p className="mt-1 text-sm opacity-70">
-                  вход · время не ограничено
-                </p>
+                <p className="mt-1 text-sm opacity-70">1 час · за ребёнка</p>
               </div>
               <div className="rounded-3xl p-5" style={{ background: BRAND.pink }}>
-                <p className="font-display text-lg font-bold leading-tight">
-                  до 15:00
+                <p className="font-display text-3xl font-bold">
+                  {s.price_kids_unlimited ?? "1000"} ₽
                 </p>
                 <p className="mt-1 text-sm opacity-80">
-                  ежедневно, для малышей 0–7 лет
+                  Безлимит* до 15:00 · за ребёнка
                 </p>
               </div>
             </div>
 
             <ul className="mt-6 max-w-md space-y-2 text-sm leading-relaxed">
               <li>
-                · Свободный вход и выход, напиток из классического меню любого
-                объёма — бесплатно при безлимите
+                · *Свободный вход/выход + напиток из классического меню кофейни
+                любого объёма — бесплатно!
               </li>
+              <li>· Ежедневно до 15:00, для малышей 0–7 лет</li>
               <li>· Формат свободной игры: присмотр осуществляют родители</li>
               <li>
                 · В дни, когда лофт арендован под праздник, проход может быть

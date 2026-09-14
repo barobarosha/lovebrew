@@ -22,7 +22,7 @@ export function Services() {
       id: "kids",
       title: "Детская игровая",
       desc: "Без аренды лофта: ежедневно до 15:00 для малышей 0–7 лет",
-      price: `${s.price_kids_hour ?? "300"} ₽ вход`,
+      price: `${s.price_kids_hour ?? "300"} ₽/час · безлимит ${s.price_kids_unlimited ?? "1000"} ₽`,
       img: "/images/kids.jpg",
       cta: () => openBooking({ type: "kids" }),
       ctaLabel: "Записаться",
