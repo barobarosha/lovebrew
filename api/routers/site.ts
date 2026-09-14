@@ -6,7 +6,10 @@ import { getDb } from "../queries/connection";
 import { eventRegistrations, events, menuItems } from "@db/schema";
 import { getPublicSettings } from "../services/settings";
 import { getMonthCalendar } from "../services/availability";
-import { notifyAdminEventRegistration } from "../services/telegram";
+import {
+  eventSummaryLine,
+  notifyAdminEventRegistration,
+} from "../services/telegram";
 import { clientIp, rateLimitOrThrow } from "../lib/rateLimit";
 import { normalizePhone } from "../services/customerAuth";
 
@@ -90,12 +93,9 @@ export const siteRouter = createRouter({
         phone,
         status: "new",
       });
-      void notifyAdminEventRegistration({
-        eventTitle: ev.title,
-        eventDate: ev.date,
-        name: input.name,
-        phone,
-      });
-      return { id: Number((result as { insertId?: number }).insertId ?? 0) };
+      const id = Number((result as { insertId?: number }).insertId ?? 0);
+      const summary = eventSummaryLine(ev);
+      void notifyAdminEventRegistration({ id, summary, source: "сайт" });
+      return { id, summary };
     }),
 });

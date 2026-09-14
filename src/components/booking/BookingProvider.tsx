@@ -20,11 +20,13 @@ import { Label } from "@/components/ui/label";
 import { trpc } from "@/providers/trpc";
 import {
   BRAND,
+  bookingChatMessage,
   isWeekendDate,
+  managerChatUrl,
   useSiteContent,
   formatDateRu,
 } from "@/lib/site";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, Send } from "lucide-react";
 
 export type BookingPreset = {
   type: "loft" | "coworking" | "kids";
@@ -138,6 +140,7 @@ function BookingForm({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [comment, setComment] = useState("");
+  const [goChat, setGoChat] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const weekend = date ? isWeekendDate(date) : false;
@@ -189,8 +192,18 @@ function BookingForm({
         comment: comment.trim() || undefined,
       },
       {
-        onSuccess: () => {
+        onSuccess: (r) => {
           utils.site.calendar.invalidate();
+          if (goChat) {
+            const url = managerChatUrl(
+              s.telegram_manager,
+              bookingChatMessage(r.summary, comment),
+            );
+            if (url) {
+              window.location.href = url;
+              return;
+            }
+          }
           onDone();
         },
         onError: (e) => setError(e.message),
@@ -469,6 +482,28 @@ function BookingForm({
           </p>
         )}
 
+        <label
+          className="flex cursor-pointer items-start gap-3 rounded-2xl px-4 py-3 text-sm"
+          style={{ background: BRAND.cream }}
+        >
+          <input
+            type="checkbox"
+            checked={goChat}
+            onChange={(e) => setGoChat(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[#2f3b2c]"
+          />
+          <span>
+            <span className="inline-flex items-center gap-1.5 font-semibold">
+              <Send className="h-3.5 w-3.5" /> Перейти в чат с менеджером в
+              Telegram?
+            </span>
+            <span className="mt-0.5 block text-xs opacity-60">
+              Заявка продублируется в чат автоматически — там можно уточнить
+              детали и дождаться подтверждения. Без персональных данных.
+            </span>
+          </span>
+        </label>
+
         <Button
           size="lg"
           disabled={createBooking.isPending}
@@ -485,8 +520,14 @@ function BookingForm({
           )}
         </Button>
         <p className="text-center text-xs opacity-50">
-          Нажимая кнопку, вы соглашаетесь с политикой обработки персональных
-          данных
+          Нажимая кнопку, вы принимаете{" "}
+          <a href="/legal/offer" target="_blank" className="underline">
+            договор оферты
+          </a>{" "}
+          и даёте{" "}
+          <a href="/legal/consent" target="_blank" className="underline">
+            согласие на обработку персональных данных
+          </a>
         </p>
       </div>
     </div>

@@ -9,6 +9,8 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   hours_weekday: "8:00 – 21:00",
   hours_weekend: "9:00 – 21:00",
   telegram_link: "https://t.me/love_brew",
+  // Username чата менеджера (без @) — клиент попадает туда после заявки
+  telegram_manager: "barobarosha",
   price_loft_weekday: "3000",
   price_loft_weekend: "3500",
   price_cleaning: "1500",
@@ -41,6 +43,7 @@ export const PUBLIC_SETTING_KEYS = [
   "hours_weekday",
   "hours_weekend",
   "telegram_link",
+  "telegram_manager",
   "price_loft_weekday",
   "price_loft_weekend",
   "price_cleaning",

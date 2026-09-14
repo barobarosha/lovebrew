@@ -43,6 +43,7 @@ const GROUPS: { title: string; keys: { key: string; label: string; hint?: string
     keys: [
       { key: "telegram_bot_token", label: "Токен бота", hint: "Создайте бота через @BotFather и вставьте токен", secret: true },
       { key: "telegram_chat_id", label: "Chat ID", hint: "Узнать можно через @userinfobot — напишите боту и получите id" },
+      { key: "telegram_manager", label: "Чат менеджера (username)", hint: "Клиент попадает в этот чат после отправки заявки. Username без @ — например, barobarosha" },
     ],
   },
   {

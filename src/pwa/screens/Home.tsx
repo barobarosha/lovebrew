@@ -48,16 +48,16 @@ export default function HomeScreen() {
           className="mt-5 rounded-3xl p-5"
           style={{ background: BRAND.white }}
         >
-          <div className="flex items-start justify-between gap-4">
-            <div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <p
-                className="text-[11px] font-semibold uppercase tracking-widest"
+                className="truncate text-[11px] font-semibold uppercase tracking-widest"
                 style={{ color: BRAND.sageDeep }}
               >
                 {customer.name || "Ваши бонусы"}
               </p>
               <p
-                className="font-display mt-1 text-5xl font-extrabold"
+                className="font-display mt-1 text-4xl font-extrabold"
                 style={{ color: BRAND.ink }}
               >
                 {home.data?.bonusesConnected ? (home.data.balance ?? 0) : "—"}
@@ -76,18 +76,19 @@ export default function HomeScreen() {
                 track("pwa_qr_shown");
                 setQrOpen(true);
               }}
-              className="rounded-2xl p-3"
+              className="w-[112px] shrink-0 rounded-2xl p-2.5"
               style={{ background: BRAND.cream }}
               title="Нажмите, чтобы увеличить код для кассы"
             >
               <QRCode
                 value={`lavbrew:${customer.phone}`}
-                size={86}
+                size={96}
                 fgColor={BRAND.ink}
                 bgColor={BRAND.cream}
+                style={{ width: "100%", height: "auto" }}
               />
               <p
-                className="mt-2 text-center text-[10px] font-medium"
+                className="mt-1.5 text-center text-[10px] font-medium leading-tight"
                 style={{ color: BRAND.sageDeep }}
               >
                 код на кассе · нажмите, чтобы увеличить

@@ -482,14 +482,8 @@ export const adminRouter = createRouter({
     .input(z.object(tokenInput))
     .mutation(async ({ input }) => {
       await assertAdmin(input.token);
-      const { notifyAdminNewBooking } = await import("../services/telegram");
-      const r = await notifyAdminNewBooking({
-        type: "loft",
-        name: "Тестовое уведомление",
-        phone: "+7 (000) 000-00-00",
-        date: "2026-01-01",
-        comment: "Проверка связи с Telegram-ботом",
-      });
+      const { notifyAdminTest } = await import("../services/telegram");
+      const r = await notifyAdminTest();
       if (!r.sent) {
         throw new TRPCError({
           code: "BAD_REQUEST",

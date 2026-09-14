@@ -4,10 +4,12 @@ import { trpc } from "@/providers/trpc";
 import { usePwa } from "../store";
 import {
   BRAND,
+  bookingChatMessage,
   currentMonth,
   formatDateRu,
   formatMonth,
   isWeekendDate,
+  managerChatUrl,
   shiftMonth,
 } from "@/lib/site";
 
@@ -162,14 +164,25 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
   const [hours, setHours] = useState(2);
   const [guests, setGuests] = useState(1);
   const [comment, setComment] = useState("");
+  const [goChat, setGoChat] = useState(true);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
   const createBooking = trpc.pwa.createBooking.useMutation({
-    onSuccess: () => {
-      setDone(true);
+    onSuccess: (r) => {
       utils.site.calendar.invalidate();
       utils.pwa.myBookings.invalidate();
+      if (goChat) {
+        const url = managerChatUrl(
+          s.telegram_manager,
+          bookingChatMessage(r.summary, comment),
+        );
+        if (url) {
+          window.location.href = url;
+          return;
+        }
+      }
+      setDone(true);
     },
     onError: (e) => setError(e.message),
   });
@@ -572,6 +585,30 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                   <p className="text-center text-sm font-medium text-red-700">{error}</p>
                 )}
 
+                {customerToken.length >= 10 && (
+                  <label
+                    className="flex cursor-pointer items-start gap-3 rounded-2xl p-3"
+                    style={{ background: BRAND.white }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={goChat}
+                      onChange={(e) => setGoChat(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[#2f3b2c]"
+                    />
+                    <span className="text-xs leading-snug">
+                      <span className="font-semibold">
+                        Перейти в чат с менеджером в Telegram?
+                      </span>
+                      <span className="mt-0.5 block" style={{ color: BRAND.sageDeep }}>
+                        Заявка продублируется в чат автоматически — там можно
+                        уточнить детали и дождаться подтверждения. Без
+                        персональных данных.
+                      </span>
+                    </span>
+                  </label>
+                )}
+
                 {customerToken.length >= 10 ? (
                   <button
                     disabled={!canSubmit || createBooking.isPending}
@@ -590,6 +627,20 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                     Войти и забронировать
                   </button>
                 )}
+
+                <p
+                  className="text-center text-[11px] leading-snug"
+                  style={{ color: BRAND.sageDeep }}
+                >
+                  Нажимая кнопку, вы принимаете{" "}
+                  <a href="/legal/offer" target="_blank" className="underline">
+                    договор оферты
+                  </a>{" "}
+                  и даёте{" "}
+                  <a href="/legal/consent" target="_blank" className="underline">
+                    согласие на обработку персональных данных
+                  </a>
+                </p>
               </div>
             )}
           </>

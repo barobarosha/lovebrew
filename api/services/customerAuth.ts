@@ -5,6 +5,7 @@ import { getDb } from "../queries/connection";
 import { customers, customerSessions, otpCodes } from "@db/schema";
 import { getRestoProvider } from "../quickresto/provider";
 import { getAllSettings } from "./settings";
+import { syncCustomerNameToQuickResto } from "./qrNameSync";
 
 export type Customer = typeof customers.$inferSelect;
 
@@ -190,9 +191,13 @@ export async function destroyCustomerSession(token: string) {
 
 export async function updateCustomerName(token: string, name: string) {
   const customer = await assertCustomer(token);
+  const trimmed = name.trim().slice(0, 120);
   await getDb()
     .update(customers)
-    .set({ name: name.trim().slice(0, 120) })
+    .set({ name: trimmed })
     .where(eq(customers.id, customer.id));
-  return { ...customer, name: name.trim() };
+  // Имя из приложения — источник правды: дублируем его в CRM Quick Resto
+  // в фоне (не блокирует ответ, ошибки только в лог).
+  void syncCustomerNameToQuickResto(customer.phone, trimmed);
+  return { ...customer, name: trimmed };
 }

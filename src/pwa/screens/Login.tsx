@@ -13,10 +13,11 @@ export default function LoginScreen({
 }) {
   const { setCustomerToken } = usePwa();
   const utils = trpc.useUtils();
-  const [step, setStep] = useState<"phone" | "code">("phone");
+  const [step, setStep] = useState<"phone" | "code" | "name">("phone");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
+  const [token, setToken] = useState("");
   const [debugCode, setDebugCode] = useState("");
   const [error, setError] = useState("");
 
@@ -32,12 +33,45 @@ export default function LoginScreen({
   const verifyOtp = trpc.pwa.verifyOtp.useMutation({
     onSuccess: (r) => {
       setCustomerToken(r.token);
+      setToken(r.token);
+      utils.pwa.me.invalidate();
+      utils.pwa.home.invalidate();
+      // Первый вход: имени ещё нет — предлагаем представиться.
+      // Это имя показывается в приложении и уходит в Quick Resto,
+      // имя из базы Quick Resto не подтягивается.
+      if (r.needName) {
+        setStep("name");
+        setError("");
+      } else {
+        onClose?.();
+      }
+    },
+    onError: (e) => setError(e.message),
+  });
+
+  const updateName = trpc.pwa.updateName.useMutation({
+    onSuccess: () => {
       utils.pwa.me.invalidate();
       utils.pwa.home.invalidate();
       onClose?.();
     },
     onError: (e) => setError(e.message),
   });
+
+  const titles: Record<typeof step, { title: string; hint: string }> = {
+    phone: {
+      title: "Вход",
+      hint: "По номеру телефона — чтобы копить бонусы и бронировать",
+    },
+    code: {
+      title: "Код из SMS",
+      hint: "Отправили 4 цифры на ваш номер",
+    },
+    name: {
+      title: "Как к вам обращаться?",
+      hint: "Это имя будет показано в приложении и на кассе",
+    },
+  };
 
   const content = (
     <div
@@ -50,10 +84,10 @@ export default function LoginScreen({
             className="font-display text-2xl font-bold uppercase"
             style={{ color: BRAND.ink }}
           >
-            Вход
+            {titles[step].title}
           </p>
           <p className="mt-1 text-sm" style={{ color: BRAND.sageDeep }}>
-            По номеру телефона — чтобы копить бонусы и бронировать
+            {titles[step].hint}
           </p>
         </div>
         {onClose && (
@@ -67,7 +101,7 @@ export default function LoginScreen({
         )}
       </div>
 
-      {step === "phone" ? (
+      {step === "phone" && (
         <div className="space-y-3">
           <input
             value={phone}
@@ -86,7 +120,9 @@ export default function LoginScreen({
             {requestOtp.isPending ? "Отправляем…" : "Получить код"}
           </button>
         </div>
-      ) : (
+      )}
+
+      {step === "code" && (
         <div className="space-y-3">
           <input
             value={code}
@@ -94,13 +130,6 @@ export default function LoginScreen({
             placeholder="Код из SMS"
             inputMode="numeric"
             className="w-full rounded-2xl border px-4 py-3.5 text-center text-2xl font-bold tracking-[0.4em] outline-none"
-            style={{ borderColor: BRAND.creamDeep, background: BRAND.cream }}
-          />
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ваше имя (необязательно)"
-            className="w-full rounded-2xl border px-4 py-3 outline-none"
             style={{ borderColor: BRAND.creamDeep, background: BRAND.cream }}
           />
           {debugCode && (
@@ -114,7 +143,7 @@ export default function LoginScreen({
           )}
           <button
             disabled={verifyOtp.isPending || code.length !== 4}
-            onClick={() => verifyOtp.mutate({ phone, code, name: name || undefined })}
+            onClick={() => verifyOtp.mutate({ phone, code })}
             className="w-full rounded-full py-3.5 font-semibold text-white disabled:opacity-60"
             style={{ background: BRAND.ink }}
           >
@@ -130,6 +159,34 @@ export default function LoginScreen({
             style={{ color: BRAND.sageDeep }}
           >
             Изменить номер
+          </button>
+        </div>
+      )}
+
+      {step === "name" && (
+        <div className="space-y-3">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ваше имя"
+            autoFocus
+            className="w-full rounded-2xl border px-4 py-3.5 text-lg outline-none"
+            style={{ borderColor: BRAND.creamDeep, background: BRAND.cream }}
+          />
+          <button
+            disabled={updateName.isPending || !name.trim()}
+            onClick={() => updateName.mutate({ token, name: name.trim() })}
+            className="w-full rounded-full py-3.5 font-semibold text-white disabled:opacity-60"
+            style={{ background: BRAND.ink }}
+          >
+            {updateName.isPending ? "Сохраняем…" : "Продолжить"}
+          </button>
+          <button
+            onClick={() => onClose?.()}
+            className="w-full py-2 text-sm font-medium"
+            style={{ color: BRAND.sageDeep }}
+          >
+            Пропустить
           </button>
         </div>
       )}

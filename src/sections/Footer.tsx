@@ -100,7 +100,31 @@ export function Footer() {
         >
           <p>© 2026 ЛАВБРЮ · Кофейня-лофт в Красногорске</p>
           <p>ИП Аветисян Е.С. · ИНН 773119647813 · ОГРНИП 322774600388110</p>
-          <div className="flex items-center gap-5">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <a
+              href="/legal/offer"
+              className="font-semibold uppercase tracking-wider hover:opacity-100"
+            >
+              Оферта
+            </a>
+            <a
+              href="/legal/rules"
+              className="font-semibold uppercase tracking-wider hover:opacity-100"
+            >
+              Правила лофта
+            </a>
+            <a
+              href="/legal/privacy"
+              className="font-semibold uppercase tracking-wider hover:opacity-100"
+            >
+              Персональные данные
+            </a>
+            <a
+              href="/legal/consent"
+              className="font-semibold uppercase tracking-wider hover:opacity-100"
+            >
+              Согласие
+            </a>
             <a
               href="/app"
               className="font-semibold uppercase tracking-wider hover:opacity-100"

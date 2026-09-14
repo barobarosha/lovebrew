@@ -185,3 +185,41 @@ export function bookingTypeLabel(t: string): string {
       return t;
   }
 }
+
+
+/* ------------------------------------------------------------------ */
+/* Чат с менеджером в Telegram после отправки заявки                   */
+/* ------------------------------------------------------------------ */
+
+/** Username чата менеджера из настройки (принимает @user, t.me/user или user) */
+export function managerUsername(raw: string | undefined): string {
+  return (raw ?? "")
+    .trim()
+    .replace(/^https?:\/\/(www\.)?t\.me\//i, "")
+    .replace(/^@/, "")
+    .replace(/\/.*$/, "")
+    .trim();
+}
+
+/** Ссылка на чат менеджера с предзаполненным сообщением (без перс. данных) */
+export function managerChatUrl(
+  rawUsername: string | undefined,
+  text: string,
+): string | null {
+  const u = managerUsername(rawUsername);
+  if (!u) return null;
+  return `https://t.me/${u}?text=${encodeURIComponent(text)}`;
+}
+
+/** Текст сообщения, которое клиент отправляет менеджеру из чата */
+export function bookingChatMessage(summary: string, comment?: string): string {
+  const lines = [
+    "🔔 Ваша заявка отправлена!",
+    `📅 ${summary}`,
+  ];
+  if (comment?.trim()) lines.push(`💬 ${comment.trim()}`);
+  lines.push(
+    "Если у вас есть дополнительные комментарии, то смело укажите их в этом чате.",
+  );
+  return lines.join("\n");
+}

@@ -7,7 +7,7 @@ import {
   checkCoworkingAvailability,
   checkLoftAvailability,
 } from "../services/availability";
-import { notifyAdminNewBooking } from "../services/telegram";
+import { bookingSummaryLine, notifyAdminNewBooking } from "../services/telegram";
 import { clientIp, rateLimitOrThrow } from "../lib/rateLimit";
 import { formatPhone, normalizePhone } from "../services/customerAuth";
 
@@ -91,19 +91,19 @@ export const bookingRouter = createRouter({
         status: "new",
       });
 
-      // Fire-and-forget notification to admin
-      void notifyAdminNewBooking({
+      const id = Number((result as { insertId?: number }).insertId ?? 0);
+      // Сводка без персональных данных — для отбивки менеджеру и чата с клиентом
+      const summary = bookingSummaryLine({
         type: input.type,
-        name: input.name,
-        phone,
         date: input.date,
-        slot: input.slot,
+        slot: input.type === "loft" ? (input.slot ?? "fullday") : null,
         startTime: input.startTime,
-        hours: input.hours,
-        guests: input.guests,
-        comment: input.comment,
+        hours: input.type === "kids" ? null : (input.hours ?? null),
       });
 
-      return { id: Number((result as { insertId?: number }).insertId ?? 0) };
+      // Fire-and-forget notification to admin
+      void notifyAdminNewBooking({ id, summary, source: "сайт" });
+
+      return { id, summary };
     }),
 });

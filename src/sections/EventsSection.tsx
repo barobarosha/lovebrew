@@ -1,7 +1,13 @@
 import { useState } from "react";
-import { BRAND, formatDateRu, useReveal } from "@/lib/site";
+import {
+  BRAND,
+  bookingChatMessage,
+  formatDateRu,
+  managerChatUrl,
+  useReveal,
+  useSiteContent,
+} from "@/lib/site";
 import { trpc } from "@/providers/trpc";
-import { useBooking } from "@/components/booking/BookingProvider";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CalendarPlus, CheckCircle2, Loader2, Ticket } from "lucide-react";
+import { CheckCircle2, Loader2, Send, Ticket } from "lucide-react";
 
 const FALLBACK_IMAGES = [
   "/images/party.jpg",
@@ -37,7 +43,6 @@ export function EventsSection() {
   const eventsQuery = trpc.site.events.useQuery(undefined, {
     staleTime: 60_000,
   });
-  const { openBooking } = useBooking();
   const [regEvent, setRegEvent] = useState<SiteEvent | null>(null);
   const upcoming = (eventsQuery.data?.upcoming ?? []) as SiteEvent[];
 
@@ -111,33 +116,27 @@ export function EventsSection() {
                     {e.description}
                   </p>
                 )}
-                <div className="mt-4 flex items-center justify-between">
-                  {e.price && (
-                    <span
-                      className="font-display text-base font-bold"
-                      style={{ color: BRAND.pink }}
-                    >
-                      {e.price}
-                    </span>
-                  )}
-                  {e.registrationOpen ? (
-                    <button
-                      onClick={() => setRegEvent(e)}
-                      className="ml-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-transform hover:scale-105"
-                      style={{ background: BRAND.pink, color: BRAND.ink }}
-                    >
-                      <Ticket className="h-4 w-4" /> Записаться
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => openBooking({ type: "loft", date: e.date })}
-                      className="ml-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-transform hover:scale-105"
-                      style={{ background: BRAND.cream, color: BRAND.ink }}
-                    >
-                      <CalendarPlus className="h-4 w-4" /> Хочу так же
-                    </button>
-                  )}
-                </div>
+                {(e.price || e.registrationOpen) && (
+                  <div className="mt-4 flex items-center justify-between">
+                    {e.price && (
+                      <span
+                        className="font-display text-base font-bold"
+                        style={{ color: BRAND.pink }}
+                      >
+                        {e.price}
+                      </span>
+                    )}
+                    {e.registrationOpen && (
+                      <button
+                        onClick={() => setRegEvent(e)}
+                        className="ml-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-transform hover:scale-105"
+                        style={{ background: BRAND.pink, color: BRAND.ink }}
+                      >
+                        <Ticket className="h-4 w-4" /> Записаться
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </article>
           ))}
@@ -161,11 +160,25 @@ function EventRegistrationDialog({
 }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [goChat, setGoChat] = useState(true);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const content = useSiteContent();
 
   const register = trpc.site.registerEvent.useMutation({
-    onSuccess: () => setDone(true),
+    onSuccess: (r) => {
+      if (goChat) {
+        const url = managerChatUrl(
+          content.data?.settings?.telegram_manager,
+          bookingChatMessage(r.summary),
+        );
+        if (url) {
+          window.location.href = url;
+          return;
+        }
+      }
+      setDone(true);
+    },
     onError: (e) => setError(e.message),
   });
 
@@ -257,6 +270,27 @@ function EventRegistrationDialog({
                     {error}
                   </p>
                 )}
+                <label
+                  className="flex cursor-pointer items-start gap-3 rounded-2xl px-4 py-3 text-sm"
+                  style={{ background: BRAND.cream }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={goChat}
+                    onChange={(e) => setGoChat(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[#2f3b2c]"
+                  />
+                  <span>
+                    <span className="inline-flex items-center gap-1.5 font-semibold">
+                      <Send className="h-3.5 w-3.5" /> Перейти в чат с
+                      менеджером в Telegram?
+                    </span>
+                    <span className="mt-0.5 block text-xs opacity-60">
+                      Запись продублируется в чат автоматически — там можно
+                      уточнить детали. Без персональных данных.
+                    </span>
+                  </span>
+                </label>
                 <Button
                   size="lg"
                   disabled={register.isPending}
@@ -274,8 +308,10 @@ function EventRegistrationDialog({
                   )}
                 </Button>
                 <p className="text-center text-xs opacity-50">
-                  Нажимая кнопку, вы соглашаетесь с политикой обработки
-                  персональных данных
+                  Нажимая кнопку, вы даёте{" "}
+                  <a href="/legal/consent" target="_blank" className="underline">
+                    согласие на обработку персональных данных
+                  </a>
                 </p>
               </div>
             </div>

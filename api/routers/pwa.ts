@@ -20,7 +20,12 @@ import {
   checkCoworkingAvailability,
   checkLoftAvailability,
 } from "../services/availability";
-import { notifyAdminEventRegistration, notifyAdminNewBooking } from "../services/telegram";
+import {
+  bookingSummaryLine,
+  eventSummaryLine,
+  notifyAdminEventRegistration,
+  notifyAdminNewBooking,
+} from "../services/telegram";
 import { clientIp, rateLimitOrThrow } from "../lib/rateLimit";
 
 const optionalToken = { token: z.string().optional() };
@@ -61,6 +66,8 @@ export const pwaRouter = createRouter({
       void trackEvent("pwa_login", { customerId: customer.id });
       return {
         token,
+        // Имя ещё не задано — приложение предложит представиться
+        needName: !customer.name,
         customer: {
           id: customer.id,
           phone: customer.phone,
@@ -338,25 +345,21 @@ export const pwaRouter = createRouter({
         source: "pwa",
       });
 
-      void notifyAdminNewBooking({
+      const id = Number((result as { insertId?: number }).insertId ?? 0);
+      const summary = bookingSummaryLine({
         type: input.type,
-        name,
-        phone,
         date: input.date,
-        slot: input.slot,
+        slot: input.type === "loft" ? (input.slot ?? "fullday") : null,
         startTime: input.startTime,
-        hours: input.hours,
-        guests: input.guests,
-        comment: input.comment
-          ? `${input.comment} [из приложения]`
-          : "Бронь из приложения",
+        hours: input.type === "kids" ? null : (input.hours ?? null),
       });
+      void notifyAdminNewBooking({ id, summary, source: "приложение" });
       void trackEvent("pwa_booking_created", {
         customerId: customer.id,
         meta: { type: input.type, date: input.date },
       });
 
-      return { id: Number((result as { insertId?: number }).insertId ?? 0) };
+      return { id, summary };
     }),
 
   // ---------- Запись на мероприятие ----------
@@ -404,7 +407,7 @@ export const pwaRouter = createRouter({
           message: "Вы уже записаны на это мероприятие",
         });
       }
-      await db.insert(eventRegistrations).values({
+      const [regResult] = await db.insert(eventRegistrations).values({
         eventId: ev.id,
         customerId: customer.id,
         name: customer.name || "Гость Лавбрю",
@@ -412,10 +415,9 @@ export const pwaRouter = createRouter({
         status: "new",
       });
       void notifyAdminEventRegistration({
-        eventTitle: ev.title,
-        eventDate: ev.date,
-        name: customer.name || "Гость Лавбрю",
-        phone: formatPhone(customer.phone),
+        id: Number((regResult as { insertId?: number }).insertId ?? 0),
+        summary: eventSummaryLine(ev),
+        source: "приложение",
       });
       return { ok: true };
     }),
