@@ -1,4 +1,4 @@
-import { BRAND, useReveal, useSiteContent } from "@/lib/site";
+import { BRAND, managerChatUrl, serviceChatMessage, useReveal, useSiteContent } from "@/lib/site";
 import { useBooking } from "@/components/booking/BookingProvider";
 import { ArrowUpRight } from "lucide-react";
 
@@ -12,8 +12,8 @@ export function Services() {
     {
       id: "loft",
       title: "Лофт для мероприятий",
-      desc: "Праздники под ключ, дни рождения, мастер-классы и киновечера",
-      price: `от ${s.price_loft_weekday ?? "3000"} ₽/ч`,
+      desc: "Праздники под ключ, дни рождения, мастер-классы и киновечера — в выходные и праздничные дни",
+      price: `от ${s.price_loft_weekend ?? "3500"} ₽/ч`,
       img: "/images/party.jpg",
       cta: () => openBooking({ type: "loft" }),
       ctaLabel: "Занять слот",
@@ -24,8 +24,8 @@ export function Services() {
       desc: "Без аренды лофта: ежедневно до 15:00 для малышей 0–7 лет",
       price: `${s.price_kids_hour ?? "300"} ₽/час · безлимит ${s.price_kids_unlimited ?? "1000"} ₽`,
       img: "/images/kids.jpg",
-      cta: () => openBooking({ type: "kids" }),
-      ctaLabel: "Записаться",
+      href: managerChatUrl(s.telegram_manager, serviceChatMessage("kids")) ?? "#",
+      ctaLabel: "Записаться в Telegram",
     },
     {
       id: "coworking",
@@ -33,8 +33,8 @@ export function Services() {
       desc: "Работайте в спокойной атмосфере с кофе и быстрым Wi-Fi",
       price: `от ${s.price_coworking_hour ?? "300"} ₽/час`,
       img: "/images/coworking.jpg",
-      cta: () => openBooking({ type: "coworking" }),
-      ctaLabel: "Забронировать место",
+      href: managerChatUrl(s.telegram_manager, serviceChatMessage("coworking")) ?? "#",
+      ctaLabel: "Бронь в Telegram",
     },
     {
       id: "menu",
@@ -102,14 +102,27 @@ export function Services() {
               <p className="mt-2 flex-1 text-sm leading-relaxed opacity-70">
                 {c.desc}
               </p>
-              <button
-                onClick={c.cta}
-                className="mt-4 inline-flex items-center gap-2 self-start rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors"
-                style={{ borderColor: BRAND.ink }}
-              >
-                {c.ctaLabel}
-                <ArrowUpRight className="h-4 w-4" />
-              </button>
+              {"href" in c && c.href ? (
+                <a
+                  href={c.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-4 inline-flex items-center gap-2 self-start rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors"
+                  style={{ borderColor: BRAND.ink }}
+                >
+                  {c.ctaLabel}
+                  <ArrowUpRight className="h-4 w-4" />
+                </a>
+              ) : (
+                <button
+                  onClick={"cta" in c ? c.cta : undefined}
+                  className="mt-4 inline-flex items-center gap-2 self-start rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors"
+                  style={{ borderColor: BRAND.ink }}
+                >
+                  {c.ctaLabel}
+                  <ArrowUpRight className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </article>
         ))}

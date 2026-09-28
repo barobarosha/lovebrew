@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Gift, Ticket, X } from "lucide-react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { Check, ChevronLeft, ChevronRight, Gift, Send, Ticket, X } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { usePwa } from "../store";
 import {
@@ -10,6 +10,7 @@ import {
   formatMonth,
   isWeekendDate,
   managerChatUrl,
+  serviceChatMessage,
   shiftMonth,
 } from "@/lib/site";
 
@@ -20,6 +21,9 @@ const TYPE_META: Record<BookingType, { title: string; desc: string }> = {
   coworking: { title: "Коворкинг", desc: "рабочее место в кофейне" },
   kids: { title: "Детская", desc: "игровая комната" },
 };
+
+const MIN_LOFT_HOURS = 2;
+const MAX_LOFT_HOURS = 13;
 
 export default function EventsScreen() {
   const { track, openBooking, customerToken, openLogin } = usePwa();
@@ -160,10 +164,11 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
 
   const [date, setDate] = useState("");
   const [slot, setSlot] = useState<string>("");
-  const [startTime, setStartTime] = useState("10:00");
-  const [hours, setHours] = useState(2);
+  const [hours, setHours] = useState(MIN_LOFT_HOURS);
+  // Текстовое значение поля «Часов»: можно очистить и ввести своё число;
+  // пустое/0/1 нельзя отправить, при расфокусе — минимум 2
+  const [hoursText, setHoursText] = useState(String(MIN_LOFT_HOURS));
   const [guests, setGuests] = useState(1);
-  const [kidsTariff, setKidsTariff] = useState<"hourly" | "unlimited">("hourly");
   const [comment, setComment] = useState("");
   const [goChat, setGoChat] = useState(true);
   const [done, setDone] = useState(false);
@@ -189,11 +194,10 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
   });
 
   const dayInfo = date ? calendar.data?.days[date] : undefined;
-  const weekend = date ? isWeekendDate(date) : false;
+  const holidays = calendar.data?.holidays;
 
-  const loftHourPrice = Number(
-    weekend ? s.price_loft_weekend || 3500 : s.price_loft_weekday || 3000,
-  );
+  // Аренда только в выходные/праздники — всегда «выходной» тариф
+  const loftHourPrice = Number(s.price_loft_weekend || 3500);
   const cleaning = Number(s.price_cleaning || 1500);
   const coworkHour = Number(s.price_coworking_hour || 300);
   const coworkDay = Number(s.price_coworking_day || 900);
@@ -201,42 +205,47 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
   const kidsUnlimitedPrice = Number(s.price_kids_unlimited || 1000);
 
   // Акция «3+1»: каждый 4-й час аренды лофта — в подарок
-  const freeHours = type === "loft" ? Math.floor(hours / 4) : 0;
+  const freeHours = Math.floor(hours / 4);
   const paidHours = hours - freeHours;
+  const estimate = loftHourPrice * paidHours + cleaning;
 
-  const estimate = useMemo(() => {
-    if (type === "loft") return loftHourPrice * paidHours + cleaning;
-    if (type === "coworking")
-      return (hours >= 3 ? coworkDay : coworkHour * hours) * guests;
-    // детская: почасовой или безлимит до 15:00, цена × количество детей
-    return kidsTariff === "unlimited"
-      ? kidsUnlimitedPrice * guests
-      : kidsPrice * hours * guests;
-  }, [type, hours, guests, paidHours, loftHourPrice, cleaning, coworkHour, coworkDay, kidsPrice, kidsUnlimitedPrice, kidsTariff]);
+  const onHoursChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/[^\d]/g, "").slice(0, 2);
+    setHoursText(raw);
+    const n = parseInt(raw, 10);
+    if (!Number.isNaN(n) && n >= MIN_LOFT_HOURS && n <= MAX_LOFT_HOURS) {
+      setHours(n);
+    }
+  };
 
-  const canSubmit =
-    !!date &&
-    (type !== "loft" || !!slot) &&
-    customerToken.length >= 10;
+  const onHoursBlur = () => {
+    const n = parseInt(hoursText, 10);
+    if (Number.isNaN(n) || n < MIN_LOFT_HOURS) {
+      setHoursText(String(MIN_LOFT_HOURS));
+      setHours(MIN_LOFT_HOURS);
+    } else if (n > MAX_LOFT_HOURS) {
+      setHoursText(String(MAX_LOFT_HOURS));
+      setHours(MAX_LOFT_HOURS);
+    }
+  };
+
+  const canSubmit = !!date && !!slot && customerToken.length >= 10;
 
   const submit = () => {
     setError("");
+    const parsedHours = parseInt(hoursText, 10);
+    if (hoursText.trim() === "" || Number.isNaN(parsedHours)) {
+      return setError("Укажите длительность аренды");
+    }
+    if (parsedHours < MIN_LOFT_HOURS) {
+      return setError("Минимальная аренда — 2 часа");
+    }
     createBooking.mutate({
       token: customerToken,
-      type,
+      type: "loft",
       date,
-      slot:
-        type === "loft"
-          ? (slot as "day" | "evening")
-          : type === "kids" && kidsTariff === "unlimited"
-            ? ("unlimited" as const)
-            : undefined,
-      startTime:
-        type === "loft" || (type === "kids" && kidsTariff === "unlimited")
-          ? undefined
-          : startTime,
-      hours:
-        type === "kids" ? (kidsTariff === "hourly" ? hours : undefined) : hours,
+      slot: slot as "day" | "evening",
+      hours: parsedHours,
       guests,
       comment: comment || undefined,
     });
@@ -256,6 +265,11 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
 
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  const chatUrl =
+    type === "coworking" || type === "kids"
+      ? managerChatUrl(s.telegram_manager, serviceChatMessage(type))
+      : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
@@ -311,8 +325,10 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                     onClick={() => {
                       setType(t);
                       setSlot("");
-                      setHours(t === "loft" ? 2 : 1);
+                      setHours(MIN_LOFT_HOURS);
+                      setHoursText(String(MIN_LOFT_HOURS));
                       setGuests(1);
+                      setError("");
                     }}
                     className="rounded-2xl p-3 text-left"
                     style={{
@@ -334,301 +350,229 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
               })}
             </div>
 
-            {/* Месяц */}
-            <div className="mt-4 rounded-2xl p-4" style={{ background: BRAND.white }}>
-              <div className="mb-3 flex items-center justify-between">
-                <button onClick={() => setMonth(shiftMonth(month, -1))}>
-                  <ChevronLeft size={20} />
-                </button>
-                <p className="font-display text-sm font-bold">{formatMonth(month)}</p>
-                <button onClick={() => setMonth(shiftMonth(month, 1))}>
-                  <ChevronRight size={20} />
-                </button>
+            {/* Коворкинг и детская — только через чат с менеджером */}
+            {type !== "loft" ? (
+              <div
+                className="mt-4 rounded-2xl p-4"
+                style={{ background: BRAND.white }}
+              >
+                <p className="font-display text-base font-bold uppercase">
+                  {TYPE_META[type].title}
+                </p>
+                <p className="mt-1 text-xs" style={{ color: BRAND.sageDeep }}>
+                  {type === "kids"
+                    ? `Ежедневно до 15:00 · ${kidsPrice.toLocaleString("ru-RU")} ₽/час · безлимит ${kidsUnlimitedPrice.toLocaleString("ru-RU")} ₽ (цена за ребёнка)`
+                    : `${coworkHour.toLocaleString("ru-RU")} ₽/час · день (от 3 часов) — ${coworkDay.toLocaleString("ru-RU")} ₽`}
+                </p>
+                <p className="mt-3 text-sm leading-snug">
+                  Онлайн-бронирование здесь отключено — напишите нам в Telegram,
+                  ответим быстро и всё оформим.
+                </p>
+                <a
+                  href={chatUrl ?? "#"}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-display mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold uppercase"
+                  style={{ background: BRAND.ink, color: BRAND.cream }}
+                >
+                  <Send size={16} /> Написать в Telegram
+                </a>
               </div>
-              <div className="grid grid-cols-7 gap-1 text-center">
-                {["П", "В", "С", "Ч", "П", "С", "В"].map((d, i) => (
-                  <p key={i} className="text-[10px] font-bold" style={{ color: BRAND.sageDeep }}>
-                    {d}
-                  </p>
-                ))}
-                {grid.map((d, i) => {
-                  if (!d) return <span key={i} />;
-                  const info = calendar.data?.days[d];
-                  const past = d < todayStr;
-                  const hasFree =
-                    info && Object.values(info.loft).some((st) => st === "available");
-                  const selected = date === d;
-                  return (
-                    <button
-                      key={i}
-                      disabled={past}
-                      onClick={() => {
-                        setDate(d);
-                        setSlot("");
-                      }}
-                      className="relative flex h-9 items-center justify-center rounded-full text-sm font-semibold disabled:opacity-30"
-                      style={{
-                        background: selected ? BRAND.pink : "transparent",
-                        color: BRAND.ink,
-                      }}
-                    >
-                      {Number(d.slice(-2))}
-                      {!past && info && (
-                        <span
-                          className="absolute bottom-0.5 h-1 w-1 rounded-full"
-                          style={{
-                            background: hasFree ? BRAND.sageDeep : "#C9C4B4",
-                          }}
-                        />
-                      )}
+            ) : (
+              <>
+                {/* Месяц */}
+                <div className="mt-4 rounded-2xl p-4" style={{ background: BRAND.white }}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <button onClick={() => setMonth(shiftMonth(month, -1))}>
+                      <ChevronLeft size={20} />
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Параметры */}
-            {date && (
-              <div className="mt-4 space-y-3">
-                <p className="text-sm font-semibold">{formatDateRu(date)}</p>
-
-                {type === "loft" && (
-                  <div className="flex gap-2">
-                    {(
-                      [
-                        ["day", "День · до 15:00"],
-                        ["evening", "Вечер · с 16:00"],
-                      ] as const
-                    ).map(([id, label]) => {
-                      const st = dayInfo?.loft[id];
-                      const disabled = st !== "available";
+                    <p className="font-display text-sm font-bold">{formatMonth(month)}</p>
+                    <button onClick={() => setMonth(shiftMonth(month, 1))}>
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 text-center">
+                    {["П", "В", "С", "Ч", "П", "С", "В"].map((d, i) => (
+                      <p key={i} className="text-[10px] font-bold" style={{ color: BRAND.sageDeep }}>
+                        {d}
+                      </p>
+                    ))}
+                    {grid.map((d, i) => {
+                      if (!d) return <span key={i} />;
+                      const info = calendar.data?.days[d];
+                      const past = d < todayStr;
+                      const hasFree =
+                        info && Object.values(info.loft).some((st) => st === "available");
+                      // Лофт сдаётся в выходные и праздники; будний день доступен,
+                      // только если админ вручную открыл слот (hasFree)
+                      const rentableDay =
+                        isWeekendDate(d) || !!holidays?.includes(d);
+                      const closed = !past && !rentableDay && !hasFree;
+                      const selected = date === d;
                       return (
                         <button
-                          key={id}
-                          disabled={disabled}
-                          onClick={() => setSlot(id)}
-                          className="flex-1 rounded-2xl px-3 py-3 text-xs font-bold disabled:opacity-40"
+                          key={i}
+                          disabled={past || closed}
+                          title={closed ? "В будни лофт не сдаётся" : undefined}
+                          onClick={() => {
+                            setDate(d);
+                            setSlot("");
+                          }}
+                          className="relative flex h-9 items-center justify-center rounded-full text-sm font-semibold disabled:opacity-30"
                           style={{
-                            background: slot === id ? BRAND.pink : BRAND.white,
+                            background: selected ? BRAND.pink : "transparent",
+                            color: BRAND.ink,
                           }}
                         >
-                          {label}
-                          {disabled && st === "booked" && (
-                            <span className="block text-[10px] font-medium">занято</span>
-                          )}
-                          {disabled && st === "blocked" && (
-                            <span className="block text-[10px] font-medium">закрыто</span>
+                          {Number(d.slice(-2))}
+                          {!past && info && (
+                            <span
+                              className="absolute bottom-0.5 h-1 w-1 rounded-full"
+                              style={{
+                                background: hasFree ? BRAND.sageDeep : "#C9C4B4",
+                              }}
+                            />
                           )}
                         </button>
                       );
                     })}
                   </div>
-                )}
+                  <p
+                    className="mt-3 text-center text-[11px] leading-snug"
+                    style={{ color: BRAND.sageDeep }}
+                  >
+                    Лофт сдаётся в выходные и праздничные дни
+                  </p>
+                </div>
 
-                {type === "kids" && (
-                  <div>
-                    <p className="mb-1 text-xs" style={{ color: BRAND.sageDeep }}>
-                      Тариф (цена за 1 ребёнка)
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
+                {/* Параметры */}
+                {date && (
+                  <div className="mt-4 space-y-3">
+                    <p className="text-sm font-semibold">{formatDateRu(date)}</p>
+
+                    <div className="flex gap-2">
                       {(
                         [
-                          ["hourly", `Почасовой`, `${kidsPrice.toLocaleString("ru-RU")} ₽/час`],
-                          ["unlimited", `Безлимит до 15:00`, `${kidsUnlimitedPrice.toLocaleString("ru-RU")} ₽`],
+                          ["day", "День · до 15:00"],
+                          ["evening", "Вечер · с 16:00"],
                         ] as const
-                      ).map(([v, label, price]) => (
-                        <button
-                          key={v}
-                          onClick={() => setKidsTariff(v)}
-                          className="rounded-2xl p-3 text-left"
-                          style={{
-                            background: kidsTariff === v ? BRAND.ink : BRAND.white,
-                            color: kidsTariff === v ? BRAND.white : BRAND.ink,
-                          }}
-                        >
-                          <p className="text-[13px] font-bold leading-tight">{label}</p>
-                          <p
-                            className="mt-1 text-[10px]"
-                            style={{ color: kidsTariff === v ? BRAND.creamDeep : BRAND.sageDeep }}
-                          >
-                            {price}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                    {kidsTariff === "unlimited" && (
-                      <p className="mt-2 text-[11px] leading-snug" style={{ color: BRAND.sageDeep }}>
-                        Свободный вход/выход + напиток из классического меню
-                        кофейни любого объёма — бесплатно
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {type !== "loft" && !(type === "kids" && kidsTariff === "unlimited") && (
-                  <div>
-                    <p className="mb-1 text-xs" style={{ color: BRAND.sageDeep }}>
-                      Время начала
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {(type === "kids"
-                        ? ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00"]
-                        : ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"]
-                      ).map(
-                        (t) => (
+                      ).map(([id, label]) => {
+                        const st = dayInfo?.loft[id];
+                        const disabled = st !== "available";
+                        return (
                           <button
-                            key={t}
-                            onClick={() => setStartTime(t)}
-                            className="rounded-full px-3 py-2 text-xs font-bold"
+                            key={id}
+                            disabled={disabled}
+                            onClick={() => setSlot(id)}
+                            className="flex-1 rounded-2xl px-3 py-3 text-xs font-bold disabled:opacity-40"
                             style={{
-                              background: startTime === t ? BRAND.pink : BRAND.white,
+                              background: slot === id ? BRAND.pink : BRAND.white,
                             }}
                           >
-                            {t}
+                            {label}
+                            {disabled && st === "booked" && (
+                              <span className="block text-[10px] font-medium">занято</span>
+                            )}
+                            {disabled && st === "blocked" && (
+                              <span className="block text-[10px] font-medium">закрыто</span>
+                            )}
                           </button>
-                        ),
-                      )}
+                        );
+                      })}
                     </div>
-                  </div>
-                )}
 
-                {/* Часы: лофт, коворкинг и почасовой тариф детской */}
-                {type !== "kids" || kidsTariff === "hourly" ? (
-                  <div className="flex gap-2">
-                    <div className="flex-1 rounded-2xl p-3" style={{ background: BRAND.white }}>
-                      <p className="text-xs" style={{ color: BRAND.sageDeep }}>
-                        Часов
-                      </p>
-                      <div className="mt-1 flex items-center justify-between">
-                        <button
-                          onClick={() => setHours(Math.max(type === "loft" ? 2 : 1, hours - 1))}
-                          className="h-8 w-8 rounded-full font-bold"
-                          style={{ background: BRAND.creamDeep }}
-                        >
-                          −
-                        </button>
-                        <span className="text-lg font-extrabold">{hours}</span>
-                        <button
-                          onClick={() => setHours(Math.min(12, hours + 1))}
-                          className="h-8 w-8 rounded-full font-bold"
-                          style={{ background: BRAND.creamDeep }}
-                        >
-                          +
-                        </button>
+                    <div className="flex gap-2">
+                      <div className="flex-1 rounded-2xl p-3" style={{ background: BRAND.white }}>
+                        <p className="text-xs" style={{ color: BRAND.sageDeep }}>
+                          Часов (минимум 2)
+                        </p>
+                        <div className="mt-1 flex items-center justify-between">
+                          <button
+                            onClick={() => {
+                              const n = Math.max(MIN_LOFT_HOURS, hours - 1);
+                              setHours(n);
+                              setHoursText(String(n));
+                            }}
+                            className="h-8 w-8 rounded-full font-bold"
+                            style={{ background: BRAND.creamDeep }}
+                          >
+                            −
+                          </button>
+                          <input
+                            value={hoursText}
+                            inputMode="numeric"
+                            onChange={onHoursChange}
+                            onBlur={onHoursBlur}
+                            aria-label="Часов"
+                            className="w-12 bg-transparent text-center text-lg font-extrabold outline-none"
+                          />
+                          <button
+                            onClick={() => {
+                              const n = Math.min(MAX_LOFT_HOURS, hours + 1);
+                              setHours(n);
+                              setHoursText(String(n));
+                            }}
+                            className="h-8 w-8 rounded-full font-bold"
+                            style={{ background: BRAND.creamDeep }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex-1 rounded-2xl p-3" style={{ background: BRAND.white }}>
+                        <p className="text-xs" style={{ color: BRAND.sageDeep }}>
+                          Гостей
+                        </p>
+                        <div className="mt-1 flex items-center justify-between">
+                          <button
+                            onClick={() => setGuests(Math.max(1, guests - 1))}
+                            className="h-8 w-8 rounded-full font-bold"
+                            style={{ background: BRAND.creamDeep }}
+                          >
+                            −
+                          </button>
+                          <span className="text-lg font-extrabold">{guests}</span>
+                          <button
+                            onClick={() => setGuests(Math.min(60, guests + 1))}
+                            className="h-8 w-8 rounded-full font-bold"
+                            style={{ background: BRAND.creamDeep }}
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex-1 rounded-2xl p-3" style={{ background: BRAND.white }}>
-                      <p className="text-xs" style={{ color: BRAND.sageDeep }}>
-                        {type === "loft" ? "Гостей" : type === "kids" ? "Детей" : "Мест"}
+
+                    <input
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      placeholder="Комментарий (необязательно)"
+                      className="w-full rounded-2xl border-none px-4 py-3 text-sm outline-none"
+                      style={{ background: BRAND.white }}
+                    />
+
+                    {freeHours > 0 && (
+                      <p
+                        className="flex items-start gap-2 rounded-2xl p-3 text-xs font-semibold leading-snug"
+                        style={{ background: BRAND.pink, color: BRAND.ink }}
+                      >
+                        <Gift size={16} className="mt-0.5 shrink-0" />
+                        Класс! Акция «3+1»: каждый 4-й час — в подарок. Уже вычли из
+                        стоимости {freeHours} ч.
                       </p>
-                      <div className="mt-1 flex items-center justify-between">
-                        <button
-                          onClick={() => setGuests(Math.max(1, guests - 1))}
-                          className="h-8 w-8 rounded-full font-bold"
-                          style={{ background: BRAND.creamDeep }}
-                        >
-                          −
-                        </button>
-                        <span className="text-lg font-extrabold">{guests}</span>
-                        <button
-                          onClick={() => setGuests(Math.min(type === "loft" ? 60 : type === "kids" ? 15 : 8, guests + 1))}
-                          className="h-8 w-8 rounded-full font-bold"
-                          style={{ background: BRAND.creamDeep }}
-                        >
-                          +
-                        </button>
+                    )}
+
+                    {/* Цена */}
+                    <div
+                      className="rounded-2xl p-4"
+                      style={{ background: BRAND.white }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold">Итого</p>
+                        <p className="font-display text-xl font-extrabold">
+                          {estimate.toLocaleString("ru-RU")} ₽
+                        </p>
                       </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <div className="flex-1 rounded-2xl p-3" style={{ background: BRAND.white }}>
-                      <p className="text-xs" style={{ color: BRAND.sageDeep }}>
-                        Детей
-                      </p>
-                      <div className="mt-1 flex items-center justify-between">
-                        <button
-                          onClick={() => setGuests(Math.max(1, guests - 1))}
-                          className="h-8 w-8 rounded-full font-bold"
-                          style={{ background: BRAND.creamDeep }}
-                        >
-                          −
-                        </button>
-                        <span className="text-lg font-extrabold">{guests}</span>
-                        <button
-                          onClick={() => setGuests(Math.min(15, guests + 1))}
-                          className="h-8 w-8 rounded-full font-bold"
-                          style={{ background: BRAND.creamDeep }}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <input
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Комментарий (необязательно)"
-                  className="w-full rounded-2xl border-none px-4 py-3 text-sm outline-none"
-                  style={{ background: BRAND.white }}
-                />
-
-                {type === "coworking" && (
-                  <p
-                    className="rounded-2xl p-3 text-xs leading-snug"
-                    style={{ background: BRAND.creamDeep }}
-                  >
-                    Важно: время работы коворкинга зависит от расписания лофта.
-                    Мы подтвердим бронь после проверки. Гостям коворкинга —
-                    скидка 20% на напитки.
-                  </p>
-                )}
-
-                {type === "loft" && freeHours > 0 && (
-                  <p
-                    className="flex items-start gap-2 rounded-2xl p-3 text-xs font-semibold leading-snug"
-                    style={{ background: BRAND.pink, color: BRAND.ink }}
-                  >
-                    <Gift size={16} className="mt-0.5 shrink-0" />
-                    Класс! Акция «3+1»: каждый 4-й час — в подарок. Уже вычли из
-                    стоимости {freeHours} ч.
-                  </p>
-                )}
-
-                {/* Цена */}
-                {type === "kids" ? (
-                  <div
-                    className="rounded-2xl p-4"
-                    style={{ background: BRAND.white }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold">Итого</p>
-                      <p className="font-display text-xl font-extrabold">
-                        {estimate.toLocaleString("ru-RU")} ₽
-                      </p>
-                    </div>
-                    <p className="mt-1 text-[11px]" style={{ color: BRAND.sageDeep }}>
-                      {kidsTariff === "unlimited"
-                        ? `${kidsUnlimitedPrice.toLocaleString("ru-RU")} ₽ × ${guests} дет. · безлимит до 15:00, напиток из классического меню — бесплатно`
-                        : `${kidsPrice.toLocaleString("ru-RU")} ₽/час × ${hours} ч × ${guests} дет.`}
-                    </p>
-                  </div>
-                ) : (
-                  <div
-                    className="rounded-2xl p-4"
-                    style={{ background: BRAND.white }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold">
-                        {type === "loft" ? "Итого" : "Примерно"}
-                      </p>
-                      <p className="font-display text-xl font-extrabold">
-                        {estimate.toLocaleString("ru-RU")} ₽
-                      </p>
-                    </div>
-                    {type === "loft" && (
                       <p className="mt-1 text-[11px] leading-snug" style={{ color: BRAND.sageDeep }}>
                         * Включена финальная уборка и вынос мусора —{" "}
                         {cleaning.toLocaleString("ru-RU")} ₽ за весь праздник.
@@ -636,71 +580,71 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                         {freeHours > 0 &&
                           ` Акция «3+1» применена: оплачиваете ${paidHours} из ${hours} ч.`}
                       </p>
+                    </div>
+
+                    {error && (
+                      <p className="text-center text-sm font-medium text-red-700">{error}</p>
                     )}
+
+                    {customerToken.length >= 10 && (
+                      <label
+                        className="flex cursor-pointer items-start gap-3 rounded-2xl p-3"
+                        style={{ background: BRAND.white }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={goChat}
+                          onChange={(e) => setGoChat(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 shrink-0 accent-[#2f3b2c]"
+                        />
+                        <span className="text-xs leading-snug">
+                          <span className="font-semibold">
+                            Перейти в чат с менеджером в Telegram?
+                          </span>
+                          <span className="mt-0.5 block" style={{ color: BRAND.sageDeep }}>
+                            Заявка продублируется в чат автоматически — там можно
+                            уточнить детали и дождаться подтверждения. Без
+                            персональных данных.
+                          </span>
+                        </span>
+                      </label>
+                    )}
+
+                    {customerToken.length >= 10 ? (
+                      <button
+                        disabled={!canSubmit || createBooking.isPending}
+                        onClick={submit}
+                        className="font-display w-full rounded-full py-4 text-sm font-bold uppercase text-white disabled:opacity-50"
+                        style={{ background: BRAND.ink }}
+                      >
+                        {createBooking.isPending ? "Отправляем…" : "Отправить заявку"}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={openLogin}
+                        className="font-display w-full rounded-full py-4 text-sm font-bold uppercase text-white"
+                        style={{ background: BRAND.ink }}
+                      >
+                        Войти и забронировать
+                      </button>
+                    )}
+
+                    <p
+                      className="text-center text-[11px] leading-snug"
+                      style={{ color: BRAND.sageDeep }}
+                    >
+                      Нажимая кнопку, вы принимаете{" "}
+                      <a href="/legal/offer" target="_blank" className="underline">
+                        договор оферты
+                      </a>{" "}
+                      и даёте{" "}
+                      <a href="/legal/consent" target="_blank" className="underline">
+                        согласие на обработку персональных данных
+                      </a>
+                    </p>
                   </div>
                 )}
-
-                {error && (
-                  <p className="text-center text-sm font-medium text-red-700">{error}</p>
-                )}
-
-                {customerToken.length >= 10 && (
-                  <label
-                    className="flex cursor-pointer items-start gap-3 rounded-2xl p-3"
-                    style={{ background: BRAND.white }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={goChat}
-                      onChange={(e) => setGoChat(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 shrink-0 accent-[#2f3b2c]"
-                    />
-                    <span className="text-xs leading-snug">
-                      <span className="font-semibold">
-                        Перейти в чат с менеджером в Telegram?
-                      </span>
-                      <span className="mt-0.5 block" style={{ color: BRAND.sageDeep }}>
-                        Заявка продублируется в чат автоматически — там можно
-                        уточнить детали и дождаться подтверждения. Без
-                        персональных данных.
-                      </span>
-                    </span>
-                  </label>
-                )}
-
-                {customerToken.length >= 10 ? (
-                  <button
-                    disabled={!canSubmit || createBooking.isPending}
-                    onClick={submit}
-                    className="font-display w-full rounded-full py-4 text-sm font-bold uppercase text-white disabled:opacity-50"
-                    style={{ background: BRAND.ink }}
-                  >
-                    {createBooking.isPending ? "Отправляем…" : "Отправить заявку"}
-                  </button>
-                ) : (
-                  <button
-                    onClick={openLogin}
-                    className="font-display w-full rounded-full py-4 text-sm font-bold uppercase text-white"
-                    style={{ background: BRAND.ink }}
-                  >
-                    Войти и забронировать
-                  </button>
-                )}
-
-                <p
-                  className="text-center text-[11px] leading-snug"
-                  style={{ color: BRAND.sageDeep }}
-                >
-                  Нажимая кнопку, вы принимаете{" "}
-                  <a href="/legal/offer" target="_blank" className="underline">
-                    договор оферты
-                  </a>{" "}
-                  и даёте{" "}
-                  <a href="/legal/consent" target="_blank" className="underline">
-                    согласие на обработку персональных данных
-                  </a>
-                </p>
-              </div>
+              </>
             )}
           </>
         )}

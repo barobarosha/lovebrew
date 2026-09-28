@@ -225,3 +225,26 @@ export function bookingChatMessage(summary: string, comment?: string): string {
   );
   return lines.join("\n");
 }
+
+/** Доступна ли аренда лофта в эту дату: суббота/воскресенье или официальный
+ *  праздник РФ (список праздников приходит с сервера) */
+export function isRentableDate(date: string, holidays?: string[]): boolean {
+  return isWeekendDate(date) || !!holidays?.includes(date);
+}
+
+/** Праздничные дни РФ на год выбранной даты (или текущий год) */
+export function useHolidaysFor(date?: string) {
+  const year = date ? Number(date.slice(0, 4)) : new Date().getFullYear();
+  return trpc.site.holidays.useQuery(
+    { year },
+    { staleTime: 6 * 60 * 60 * 1000 },
+  );
+}
+
+/** Готовое сообщение для чата менеджера — бронирование без онлайн-формы
+ *  (коворкинг и детская игровая принимаются только через Telegram) */
+export function serviceChatMessage(service: "coworking" | "kids"): string {
+  return service === "coworking"
+    ? "Здравствуйте! Хочу забронировать место в коворкинге. Подскажите, пожалуйста, свободное время на ближайшие дни."
+    : "Здравствуйте! Хочу прийти с ребёнком в детскую игровую комнату. Подскажите, пожалуйста, свободные часы.";
+}

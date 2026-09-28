@@ -4,6 +4,7 @@ import {
   useContext,
   useMemo,
   useState,
+  type ChangeEvent,
   type ReactNode,
 } from "react";
 import {
@@ -21,15 +22,16 @@ import { trpc } from "@/providers/trpc";
 import {
   BRAND,
   bookingChatMessage,
-  isWeekendDate,
+  isRentableDate,
   managerChatUrl,
+  useHolidaysFor,
   useSiteContent,
   formatDateRu,
 } from "@/lib/site";
 import { CheckCircle2, Loader2, Send } from "lucide-react";
 
 export type BookingPreset = {
-  type: "loft" | "coworking" | "kids";
+  type: "loft";
   date?: string;
   slot?: "day" | "evening" | "fullday";
 };
@@ -46,11 +48,9 @@ export function useBooking() {
   return useContext(BookingContext);
 }
 
-const TYPE_TITLES: Record<BookingPreset["type"], string> = {
-  loft: "Аренда лофта",
-  coworking: "Бронь места в коворкинге",
-  kids: "Детская игровая комната",
-};
+const TYPE_TITLE = "Аренда лофта";
+const MIN_LOFT_HOURS = 2;
+const MAX_LOFT_HOURS = 13;
 
 export function BookingProvider({ children }: { children: ReactNode }) {
   const [preset, setPreset] = useState<BookingPreset | null>(null);
@@ -135,67 +135,78 @@ function BookingForm({
     preset.slot ?? "day",
   );
   const [startTime, setStartTime] = useState("10:00");
-  const [hours, setHours] = useState(2);
+  const [hours, setHours] = useState(MIN_LOFT_HOURS);
+  // Текстовое значение поля «Часов»: позволяем очистить поле и ввести
+  // своё число; 0/1 и пустоту нельзя отправить, при расфокусе — минимум 2
+  const [hoursText, setHoursText] = useState(String(MIN_LOFT_HOURS));
   const [guests, setGuests] = useState(1);
-  const [kidsTariff, setKidsTariff] = useState<"hourly" | "unlimited">("hourly");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [comment, setComment] = useState("");
   const [goChat, setGoChat] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const weekend = date ? isWeekendDate(date) : false;
-  const loftPrice = weekend
-    ? parseInt(s.price_loft_weekend ?? "3500", 10)
-    : parseInt(s.price_loft_weekday ?? "3000", 10);
+  // Праздники РФ на год выбранной даты — лофт сдаётся в выходные и праздники
+  const { data: holidays } = useHolidaysFor(date || undefined);
+  const rentable = date ? isRentableDate(date, holidays) : true;
+
+  // Аренда только в выходные/праздники — всегда «выходной» тариф
+  const loftPrice = parseInt(s.price_loft_weekend ?? "3500", 10);
   const cleaning = parseInt(s.price_cleaning ?? "1500", 10);
-  const coworkPrice = parseInt(s.price_coworking_hour ?? "300", 10);
-  const coworkDayPrice = parseInt(s.price_coworking_day ?? "900", 10);
-  const kidsPrice = parseInt(s.price_kids_hour ?? "300", 10);
-  const kidsUnlimitedPrice = parseInt(s.price_kids_unlimited ?? "1000", 10);
 
   // Акция «3+1»: каждый 4-й час аренды лофта — в подарок
-  const freeHours = preset.type === "loft" ? Math.floor(hours / 4) : 0;
+  const freeHours = Math.floor(hours / 4);
   const paidHours = hours - freeHours;
+  const estimate = loftPrice * paidHours + cleaning;
 
-  const estimate =
-    preset.type === "loft"
-      ? loftPrice * paidHours + cleaning
-      : preset.type === "coworking"
-        ? (hours >= 3 ? coworkDayPrice : coworkPrice * hours) * guests
-        : kidsTariff === "unlimited"
-          ? kidsUnlimitedPrice * guests
-          : kidsPrice * hours * guests;
+  const onHoursChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/[^\d]/g, "").slice(0, 2);
+    setHoursText(raw);
+    const n = parseInt(raw, 10);
+    if (!Number.isNaN(n) && n >= MIN_LOFT_HOURS && n <= MAX_LOFT_HOURS) {
+      setHours(n);
+    }
+  };
+
+  const onHoursBlur = () => {
+    const n = parseInt(hoursText, 10);
+    if (Number.isNaN(n) || n < MIN_LOFT_HOURS) {
+      setHoursText(String(MIN_LOFT_HOURS));
+      setHours(MIN_LOFT_HOURS);
+    } else if (n > MAX_LOFT_HOURS) {
+      setHoursText(String(MAX_LOFT_HOURS));
+      setHours(MAX_LOFT_HOURS);
+    }
+  };
 
   const submit = () => {
     setError(null);
     if (!date) return setError("Выберите дату");
+    if (!rentable) {
+      return setError(
+        "В будни лофт не арендуется — выберите выходной или праздничный день",
+      );
+    }
+    const parsedHours = parseInt(hoursText, 10);
+    if (hoursText.trim() === "" || Number.isNaN(parsedHours)) {
+      return setError("Укажите длительность аренды");
+    }
+    if (parsedHours < MIN_LOFT_HOURS) {
+      return setError("Минимальная аренда — 2 часа");
+    }
     if (name.trim().length < 2) return setError("Укажите имя");
     if (phone.trim().length < 6) return setError("Укажите телефон");
 
     createBooking.mutate(
       {
-        type: preset.type,
+        type: "loft",
         name: name.trim(),
         phone: phone.trim(),
         date,
-        slot:
-          preset.type === "loft"
-            ? slot
-            : preset.type === "kids" && kidsTariff === "unlimited"
-              ? ("unlimited" as const)
-              : undefined,
-        startTime:
-          preset.type === "kids" && kidsTariff === "unlimited"
-            ? undefined
-            : startTime,
-        hours:
-          preset.type === "kids"
-            ? kidsTariff === "hourly"
-              ? hours
-              : undefined
-            : hours,
-        guests: preset.type === "coworking" ? guests : guests || undefined,
+        slot,
+        startTime,
+        hours: parsedHours,
+        guests: guests || undefined,
         comment: comment.trim() || undefined,
       },
       {
@@ -225,12 +236,12 @@ function BookingForm({
           className="font-display text-xl leading-snug"
           style={{ color: BRAND.ink }}
         >
-          {TYPE_TITLES[preset.type]}
+          {TYPE_TITLE}
         </DialogTitle>
         <DialogDescription>
-          {preset.type === "loft"
-            ? "Пространство 100 м² с детской игровой комнатой, проектором, настольными играми и кухней. Оставьте заявку — администратор подтвердит бронь и свяжется с вами."
-            : "Оставьте заявку — администратор подтвердит бронь и свяжется с вами."}
+          Пространство 100 м² с детской игровой комнатой, проектором,
+          настольными играми и кухней. Аренда — в выходные и праздничные дни.
+          Оставьте заявку — администратор подтвердит бронь и свяжется с вами.
         </DialogDescription>
       </DialogHeader>
 
@@ -249,207 +260,81 @@ function BookingForm({
           {date && (
             <p className="text-xs opacity-60">{formatDateRu(date)}</p>
           )}
+          {date && !rentable && (
+            <p
+              className="rounded-xl px-3 py-2 text-xs font-medium"
+              style={{ background: BRAND.cream }}
+            >
+              В будни лофт не сдаётся — выберите субботу, воскресенье или
+              официальный праздник.
+            </p>
+          )}
         </div>
 
-        {preset.type === "loft" && (
-          <div className="grid gap-2">
-            <Label>Слот</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {(
-                [
-                  ["day", "Дневной · до 15:00"],
-                  ["evening", "Вечерний · с 16:00"],
-                ] as const
-              ).map(([v, l]) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setSlot(v)}
-                  className="rounded-xl border px-3 py-3 text-sm font-semibold transition-all"
-                  style={{
-                    background:
-                      slot === v ? BRAND.sageDeep : "transparent",
-                    color: slot === v ? BRAND.white : BRAND.ink,
-                    borderColor:
-                      slot === v ? BRAND.sageDeep : BRAND.creamDeep,
-                  }}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
+        <div className="grid gap-2">
+          <Label>Слот</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {(
+              [
+                ["day", "Дневной · до 15:00"],
+                ["evening", "Вечерний · с 16:00"],
+              ] as const
+            ).map(([v, l]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setSlot(v)}
+                className="rounded-xl border px-3 py-3 text-sm font-semibold transition-all"
+                style={{
+                  background: slot === v ? BRAND.sageDeep : "transparent",
+                  color: slot === v ? BRAND.white : BRAND.ink,
+                  borderColor: slot === v ? BRAND.sageDeep : BRAND.creamDeep,
+                }}
+              >
+                {l}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
 
-        {preset.type === "loft" && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="grid min-w-0 gap-2">
-              <Label>Начало</Label>
-              <Input
-                type="time"
-                value={startTime}
-                min="08:00"
-                max="21:00"
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full min-w-0 rounded-xl"
-              />
-            </div>
-            <div className="grid min-w-0 gap-2">
-              <Label>Часов (от 2)</Label>
-              <Input
-                type="number"
-                min={2}
-                max={13}
-                value={hours}
-                onChange={(e) => setHours(Math.max(2, +e.target.value || 2))}
-                className="w-full min-w-0 rounded-xl"
-              />
-            </div>
-          </div>
-        )}
-
-        {preset.type === "coworking" && (
-          <div
-            className="rounded-2xl px-4 py-3 text-sm leading-relaxed"
-            style={{ background: BRAND.cream }}
-          >
-            <b>Важно:</b> время работы коворкинга зависит от расписания лофта —
-            уточняйте свободные часы заранее. Тарифы: 1 час — {coworkPrice} ₽, 2
-            часа — {(coworkPrice * 2).toLocaleString("ru-RU")} ₽, день (от 3
-            часов) — {coworkDayPrice.toLocaleString("ru-RU")} ₽. Гостям
-            коворкинга — скидка 20% на напитки в кофейне.
-          </div>
-        )}
-
-        {preset.type === "coworking" && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="grid min-w-0 gap-2">
-              <Label>Начало</Label>
-              <Input
-                type="time"
-                value={startTime}
-                min="08:00"
-                max="20:00"
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full min-w-0 rounded-xl"
-              />
-            </div>
-            <div className="grid min-w-0 gap-2">
-              <Label>Часов</Label>
-              <Input
-                type="number"
-                min={1}
-                max={12}
-                value={hours}
-                onChange={(e) => setHours(Math.max(1, +e.target.value || 1))}
-                className="w-full min-w-0 rounded-xl"
-              />
-            </div>
-            <div className="grid min-w-0 gap-2">
-              <Label>Мест</Label>
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                value={guests}
-                onChange={(e) => setGuests(Math.max(1, +e.target.value || 1))}
-                className="w-full min-w-0 rounded-xl"
-              />
-            </div>
-          </div>
-        )}
-
-        {preset.type === "kids" && (
-          <div className="grid gap-2">
-            <Label>Тариф (цена за 1 ребёнка)</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {(
-                [
-                  ["hourly", `Почасовой · ${kidsPrice.toLocaleString("ru-RU")} ₽/час`],
-                  ["unlimited", `Безлимит до 15:00 · ${kidsUnlimitedPrice.toLocaleString("ru-RU")} ₽`],
-                ] as const
-              ).map(([v, l]) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setKidsTariff(v)}
-                  className="rounded-xl border px-3 py-3 text-sm font-semibold transition-all"
-                  style={{
-                    background: kidsTariff === v ? BRAND.sageDeep : "transparent",
-                    color: kidsTariff === v ? BRAND.white : BRAND.ink,
-                    borderColor: kidsTariff === v ? BRAND.sageDeep : BRAND.creamDeep,
-                  }}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-            {kidsTariff === "unlimited" && (
-              <p className="text-xs opacity-60">
-                Свободный вход/выход + напиток из классического меню кофейни
-                любого объёма — бесплатно
-              </p>
-            )}
-          </div>
-        )}
-
-        {preset.type === "kids" && (
-          <div
-            className={`grid grid-cols-1 gap-3 ${kidsTariff === "hourly" ? "sm:grid-cols-3" : "sm:grid-cols-1"}`}
-          >
-            {kidsTariff === "hourly" && (
-              <>
-                <div className="grid min-w-0 gap-2">
-                  <Label>Начало визита</Label>
-                  <Input
-                    type="time"
-                    value={startTime}
-                    min="08:00"
-                    max="15:00"
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full min-w-0 rounded-xl"
-                  />
-                </div>
-                <div className="grid min-w-0 gap-2">
-                  <Label>Часов</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={8}
-                    value={hours}
-                    onChange={(e) => setHours(Math.max(1, +e.target.value || 1))}
-                    className="w-full min-w-0 rounded-xl"
-                  />
-                </div>
-              </>
-            )}
-            <div className="grid min-w-0 gap-2">
-              <Label>Детей</Label>
-              <Input
-                type="number"
-                min={1}
-                max={15}
-                value={guests}
-                onChange={(e) => setGuests(Math.max(1, +e.target.value || 1))}
-                className="w-full min-w-0 rounded-xl"
-              />
-            </div>
-          </div>
-        )}
-
-        {preset.type === "loft" && (
-          <div className="grid gap-2">
-            <Label>Гостей (примерно)</Label>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-2">
+            <Label>Начало</Label>
             <Input
-              type="number"
-              min={1}
-              max={60}
-              value={guests}
-              onChange={(e) => setGuests(Math.max(1, +e.target.value || 1))}
-              className="rounded-xl"
+              type="time"
+              value={startTime}
+              min="08:00"
+              max="21:00"
+              onChange={(e) => setStartTime(e.target.value)}
+              className="w-full min-w-0 rounded-xl"
             />
           </div>
-        )}
+          <div className="grid min-w-0 gap-2">
+            <Label>Часов (от 2)</Label>
+            <Input
+              type="number"
+              min={MIN_LOFT_HOURS}
+              max={MAX_LOFT_HOURS}
+              inputMode="numeric"
+              value={hoursText}
+              onChange={onHoursChange}
+              onBlur={onHoursBlur}
+              className="w-full min-w-0 rounded-xl"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-2">
+          <Label>Гостей (примерно)</Label>
+          <Input
+            type="number"
+            min={1}
+            max={60}
+            value={guests}
+            onChange={(e) => setGuests(Math.max(1, +e.target.value || 1))}
+            className="rounded-xl"
+          />
+        </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="grid gap-2">
@@ -477,16 +362,12 @@ function BookingForm({
           <Textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder={
-              preset.type === "loft"
-                ? "Повод, пожелания по оформлению, нужен ли рояль…"
-                : "Пожелания или вопросы"
-            }
+            placeholder="Повод, пожелания по оформлению, нужен ли рояль…"
             className="min-h-20 rounded-xl"
           />
         </div>
 
-        {preset.type === "loft" && freeHours > 0 && (
+        {freeHours > 0 && (
           <div
             className="rounded-2xl px-4 py-3 text-sm font-semibold"
             style={{ background: BRAND.pink, color: BRAND.ink }}
@@ -496,35 +377,22 @@ function BookingForm({
           </div>
         )}
 
-        {estimate !== null && (
-          <div
-            className="rounded-2xl px-4 py-3 text-sm"
-            style={{ background: BRAND.cream }}
-          >
-            <span className="opacity-70">
-              {preset.type === "loft" ? "Итого: " : "Предварительная стоимость: "}
-            </span>
-            <span className="font-display font-semibold">
-              {estimate.toLocaleString("ru-RU")} ₽
-            </span>
-            {preset.type === "loft" && (
-              <span className="mt-1 block text-xs opacity-60">
-                {loftPrice.toLocaleString("ru-RU")} ₽/ч × {paidHours} ч
-                {freeHours > 0 && ` (+ ${freeHours} ч в подарок по акции «3+1»)`}
-                {" · "}* Финальная уборка и вынос мусора —{" "}
-                {cleaning.toLocaleString("ru-RU")} ₽ за весь праздник. Вы
-                просто забираете подарки, порядок — на нас.
-              </span>
-            )}
-            {preset.type === "kids" && (
-              <span className="mt-1 block text-xs opacity-60">
-                {kidsTariff === "unlimited"
-                  ? `${kidsUnlimitedPrice.toLocaleString("ru-RU")} ₽ × ${guests} дет. · безлимит до 15:00`
-                  : `${kidsPrice.toLocaleString("ru-RU")} ₽/час × ${hours} ч × ${guests} дет.`}
-              </span>
-            )}
-          </div>
-        )}
+        <div
+          className="rounded-2xl px-4 py-3 text-sm"
+          style={{ background: BRAND.cream }}
+        >
+          <span className="opacity-70">Итого: </span>
+          <span className="font-display font-semibold">
+            {estimate.toLocaleString("ru-RU")} ₽
+          </span>
+          <span className="mt-1 block text-xs opacity-60">
+            {loftPrice.toLocaleString("ru-RU")} ₽/ч × {paidHours} ч
+            {freeHours > 0 && ` (+ ${freeHours} ч в подарок по акции «3+1»)`}
+            {" · "}* Финальная уборка и вынос мусора —{" "}
+            {cleaning.toLocaleString("ru-RU")} ₽ за весь праздник. Вы просто
+            забираете подарки, порядок — на нас.
+          </span>
+        </div>
 
         {error && (
           <p className="rounded-xl bg-red-50 px-4 py-2 text-sm font-medium text-red-700">

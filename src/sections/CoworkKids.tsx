@@ -1,12 +1,20 @@
-import { BRAND, useReveal, useSiteContent } from "@/lib/site";
-import { useBooking } from "@/components/booking/BookingProvider";
-import { ArrowUpRight, Check } from "lucide-react";
+import {
+  BRAND,
+  managerChatUrl,
+  serviceChatMessage,
+  useReveal,
+  useSiteContent,
+} from "@/lib/site";
+import { Check, Send } from "lucide-react";
 
 export function CoworkingSection() {
   const ref = useReveal<HTMLElement>();
-  const { openBooking } = useBooking();
   const content = useSiteContent();
   const s = content.data?.settings ?? {};
+  const chatUrl = managerChatUrl(
+    s.telegram_manager,
+    serviceChatMessage("coworking"),
+  );
 
   return (
     <section id="coworking" ref={ref} className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24">
@@ -85,13 +93,19 @@ export function CoworkingSection() {
             уточняйте свободные часы заранее (накануне или за 1–2 часа до
             визита), чтобы мы закрепили за вами место и вас ничего не отвлекало.
           </p>
-          <button
-            onClick={() => openBooking({ type: "coworking" })}
+          <a
+            href={chatUrl ?? "#"}
+            target="_blank"
+            rel="noreferrer"
             className="mt-8 inline-flex items-center gap-2 rounded-full px-8 py-4 font-display text-sm font-semibold uppercase tracking-wide transition-transform hover:scale-105"
             style={{ background: BRAND.ink, color: BRAND.cream }}
           >
-            Забронировать место <ArrowUpRight className="h-4 w-4" />
-          </button>
+            Забронировать в Telegram <Send className="h-4 w-4" />
+          </a>
+          <p className="mt-3 text-xs opacity-60">
+            Бронирование — через чат с менеджером: ответим и закрепим за вами
+            место.
+          </p>
         </div>
       </div>
     </section>
@@ -100,9 +114,12 @@ export function CoworkingSection() {
 
 export function KidsSection() {
   const ref = useReveal<HTMLElement>();
-  const { openBooking } = useBooking();
   const content = useSiteContent();
   const s = content.data?.settings ?? {};
+  const chatUrl = managerChatUrl(
+    s.telegram_manager,
+    serviceChatMessage("kids"),
+  );
 
   return (
     <section
@@ -158,13 +175,18 @@ export function KidsSection() {
               </li>
             </ul>
 
-            <button
-              onClick={() => openBooking({ type: "kids" })}
+            <a
+              href={chatUrl ?? "#"}
+              target="_blank"
+              rel="noreferrer"
               className="mt-8 inline-flex items-center gap-2 rounded-full px-8 py-4 font-display text-sm font-semibold uppercase tracking-wide transition-transform hover:scale-105"
               style={{ background: BRAND.ink, color: BRAND.cream }}
             >
-              Записаться на визит <ArrowUpRight className="h-4 w-4" />
-            </button>
+              Записаться в Telegram <Send className="h-4 w-4" />
+            </a>
+            <p className="mt-3 text-xs opacity-70">
+              Запись — через чат с менеджером: подскажем свободные часы.
+            </p>
           </div>
           <div
             className="order-1 overflow-hidden lg:order-2"

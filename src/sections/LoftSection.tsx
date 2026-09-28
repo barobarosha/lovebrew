@@ -81,7 +81,8 @@ export function LoftSection() {
             <p className="mt-5 max-w-md leading-relaxed opacity-80">
               Дни рождения, детские праздники, камерные свадьбы, мастер-классы,
               йога и тренинги. Пространство трансформируется под ваш формат, а
-              праздник можно заказать «под ключ».
+              праздник можно заказать «под ключ». Аренда — в выходные и
+              праздничные дни.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               {["Площадь 100 м²", "Потолки от 3,5 м", "Детская игровая внутри"].map(
@@ -100,19 +101,6 @@ export function LoftSection() {
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               <div
                 className="rounded-3xl p-6"
-                style={{ background: BRAND.white }}
-              >
-                <p className="text-xs font-bold uppercase tracking-wider opacity-60">
-                  Будние дни
-                </p>
-                <p className="font-display mt-2 text-3xl font-bold">
-                  {s.price_loft_weekday ?? "3000"} ₽
-                  <span className="text-base font-medium opacity-60">/час</span>
-                </p>
-                <p className="mt-1 text-sm opacity-70">от 2-х часов</p>
-              </div>
-              <div
-                className="rounded-3xl p-6"
                 style={{ background: BRAND.sage }}
               >
                 <p className="text-xs font-bold uppercase tracking-wider opacity-70">
@@ -123,7 +111,20 @@ export function LoftSection() {
                   <span className="text-base font-medium opacity-70">/час</span>
                 </p>
                 <p className="mt-1 text-sm opacity-80">
-                  слоты: дневной до 15:00 · вечерний с 16:00
+                  слоты: дневной до 15:00 · вечерний с 16:00 · от 2 часов
+                </p>
+              </div>
+              <div
+                className="rounded-3xl p-6"
+                style={{ background: BRAND.white }}
+              >
+                <p className="text-xs font-bold uppercase tracking-wider opacity-60">
+                  Будние дни
+                </p>
+                <p className="font-display mt-2 text-3xl font-bold">Не сдаётся</p>
+                <p className="mt-1 text-sm opacity-70">
+                  В будни лофт не арендуется — но следите за афишей: иногда там
+                  проходят открытые мероприятия
                 </p>
               </div>
             </div>

@@ -2,6 +2,7 @@ import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDb } from "../queries/connection";
 import { bookings, events, loftSlots } from "@db/schema";
 import { getAllSettings } from "./settings";
+import { getYearHolidays, isLoftRentableDate } from "./holidays";
 
 export type LoftSlotId = "day" | "evening" | "fullday";
 export type SlotStatus = "available" | "booked" | "blocked" | "past";
@@ -48,7 +49,7 @@ export async function getMonthCalendar(month: string) {
   const lastDay = new Date(y, m, 0).getDate();
   const last = `${month}-${String(lastDay).padStart(2, "0")}`;
 
-  const [slotRows, bookingRows, eventRows, s] = await Promise.all([
+  const [slotRows, bookingRows, eventRows, s, holidaySet] = await Promise.all([
     db
       .select()
       .from(loftSlots)
@@ -74,6 +75,7 @@ export async function getMonthCalendar(month: string) {
         ),
       ),
     getAllSettings(),
+    getYearHolidays(y),
   ]);
 
   const capacity = parseInt(s.coworking_capacity || "8", 10) || 8;
@@ -91,6 +93,9 @@ export async function getMonthCalendar(month: string) {
   for (let d = 1; d <= lastDay; d++) {
     const date = `${month}-${String(d).padStart(2, "0")}`;
     const loft: Record<string, SlotStatus> = {};
+    // Аренда лофта — только в выходные и праздники; в будни слоты закрыты,
+    // если админ явно не открыл конкретный слот вручную
+    const rentable = isWeekend(date) || holidaySet.has(date);
     for (const slot of slotsForDate(date)) {
       let status: SlotStatus = "available";
       if (date < today) status = "past";
@@ -98,6 +103,13 @@ export async function getMonthCalendar(month: string) {
         (r) => r.date === date && r.slot === slot,
       );
       if (override && override.status === "blocked") status = "blocked";
+      if (
+        !rentable &&
+        status !== "past" &&
+        !(override && override.status === "available")
+      ) {
+        status = "blocked";
+      }
       const occupied = bookingRows.some(
         (b) =>
           b.type === "loft" &&
@@ -121,7 +133,9 @@ export async function getMonthCalendar(month: string) {
     };
   }
 
-  return { days, capacity };
+  const holidays = [...holidaySet].filter((d) => d.startsWith(month)).sort();
+
+  return { days, capacity, holidays };
 }
 
 /** Check that a loft booking request can be accepted */
@@ -134,17 +148,23 @@ export async function checkLoftAvailability(
     return { ok: false, reason: "Некорректный слот для этой даты" };
   }
   const db = getDb();
+  // Любой override слота: админ может вручную закрыть слот в выходной
+  // или, наоборот, открыть будний день под отдельную договорённость
   const overrides = await db
     .select()
     .from(loftSlots)
-    .where(
-      and(
-        eq(loftSlots.date, date),
-        eq(loftSlots.slot, slot),
-        eq(loftSlots.status, "blocked"),
-      ),
-    );
-  if (overrides.length) return { ok: false, reason: "Слот закрыт администратором" };
+    .where(and(eq(loftSlots.date, date), eq(loftSlots.slot, slot)));
+  const forcedOpen = overrides.some((o) => o.status === "available");
+  if (!(await isLoftRentableDate(date)) && !forcedOpen) {
+    return {
+      ok: false,
+      reason:
+        "В будни лофт не арендуется — выберите выходной или праздничный день",
+    };
+  }
+  if (overrides.some((o) => o.status === "blocked")) {
+    return { ok: false, reason: "Слот закрыт администратором" };
+  }
   const existing = await db
     .select()
     .from(bookings)

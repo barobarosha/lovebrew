@@ -6,6 +6,7 @@ import { getDb } from "../queries/connection";
 import { eventRegistrations, events, menuItems } from "@db/schema";
 import { getPublicSettings } from "../services/settings";
 import { getMonthCalendar } from "../services/availability";
+import { getYearHolidayDates } from "../services/holidays";
 import {
   eventSummaryLine,
   notifyAdminEventRegistration,
@@ -49,10 +50,16 @@ export const siteRouter = createRouter({
       }));
   }),
 
-  // Calendar for a month: loft slots, coworking occupancy, events
+  // Calendar for a month: loft slots, coworking occupancy, events, holidays
   calendar: publicQuery
     .input(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) }))
     .query(({ input }) => getMonthCalendar(input.month)),
+
+  // Нерабочие праздничные дни РФ на год (производственный календарь,
+  // источник — isdayoff.ru с fallback-списком в коде)
+  holidays: publicQuery
+    .input(z.object({ year: z.number().int().min(2024).max(2100) }))
+    .query(({ input }) => getYearHolidayDates(input.year)),
 
   // Запись на мероприятие (если админ открыл запись)
   registerEvent: publicQuery

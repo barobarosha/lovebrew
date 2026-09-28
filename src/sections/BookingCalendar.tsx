@@ -5,6 +5,9 @@ import {
   formatDateRu,
   formatMonth,
   isWeekendDate,
+  isRentableDate,
+  managerChatUrl,
+  serviceChatMessage,
   shiftMonth,
   useCalendar,
   useReveal,
@@ -12,7 +15,7 @@ import {
   type SlotStatus,
 } from "@/lib/site";
 import { useBooking } from "@/components/booking/BookingProvider";
-import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Send } from "lucide-react";
 
 const WEEKDAYS = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"];
 
@@ -44,9 +47,22 @@ export function BookingCalendar() {
     return arr;
   }, [month]);
 
+  const holidays = cal.data?.holidays;
   const dayData = selected ? cal.data?.days[selected] : undefined;
   const weekend = selected ? isWeekendDate(selected) : false;
+  const holidayDay = selected ? !!holidays?.includes(selected) : false;
+  // Аренда лофта: только выходные и праздничные дни
+  const rentable = selected ? isRentableDate(selected, holidays) : false;
   const capacity = cal.data?.capacity ?? 8;
+
+  const coworkChatUrl = managerChatUrl(
+    s.telegram_manager,
+    serviceChatMessage("coworking"),
+  );
+  const kidsChatUrl = managerChatUrl(
+    s.telegram_manager,
+    serviceChatMessage("kids"),
+  );
 
   return (
     <section id="calendar" ref={ref} className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24">
@@ -200,10 +216,16 @@ export function BookingCalendar() {
                   выходной
                 </span>
               )}
+              {!weekend && holidayDay && (
+                <span className="ml-2 rounded-full px-3 py-1 align-middle text-xs"
+                  style={{ background: BRAND.pink }}>
+                  праздник
+                </span>
+              )}
             </p>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {/* Loft slots — день/вечер каждый день */}
+              {/* Loft slots — аренда только в выходные и праздники */}
               {(["day", "evening"] as const).map((slot) => {
                 const st = dayData.loft[slot] ?? "available";
                 const free = st === "available";
@@ -218,30 +240,34 @@ export function BookingCalendar() {
                     </p>
                     <p
                       className="font-display mt-1 text-sm font-semibold"
-                      style={{ color: SLOT_STYLE[st].dot }}
+                      style={{
+                        color: !rentable ? "#B9B4A4" : SLOT_STYLE[st].dot,
+                      }}
                     >
-                      {SLOT_STYLE[st].label}
+                      {!rentable ? "в будни не сдаётся" : SLOT_STYLE[st].label}
                     </p>
                     <button
-                      disabled={!free}
+                      disabled={!free || !rentable}
                       onClick={() =>
                         openBooking({ type: "loft", date: selected, slot })
                       }
                       className="mt-3 w-full rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-transform enabled:hover:scale-105 disabled:opacity-40"
                       style={{
-                        background: free ? BRAND.ink : BRAND.creamDeep,
-                        color: free ? BRAND.cream : BRAND.ink,
+                        background: free && rentable ? BRAND.ink : BRAND.creamDeep,
+                        color: free && rentable ? BRAND.cream : BRAND.ink,
                       }}
                     >
-                      {free
-                        ? `Занять · ${weekend ? (s.price_loft_weekend ?? "3500") : (s.price_loft_weekday ?? "3000")} ₽/ч`
-                        : "Недоступно"}
+                      {!rentable
+                        ? "Только выходные и праздники"
+                        : free
+                          ? `Занять · ${s.price_loft_weekend ?? "3500"} ₽/ч`
+                          : "Недоступно"}
                     </button>
                   </div>
                 );
               })}
 
-              {/* Coworking */}
+              {/* Coworking — бронь только через чат с менеджером */}
               <div className="rounded-2xl p-4" style={{ background: BRAND.white }}>
                 <p className="text-xs font-bold uppercase tracking-wider opacity-60">
                   Коворкинг
@@ -249,30 +275,36 @@ export function BookingCalendar() {
                 <p className="font-display mt-1 text-sm font-semibold" style={{ color: BRAND.sageDeep }}>
                   свободно ~{Math.max(0, capacity - dayData.coworkingSeatsTaken)} из {capacity} мест
                 </p>
-                <button
-                  onClick={() => openBooking({ type: "coworking", date: selected })}
-                  className="mt-3 w-full rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-transform hover:scale-105"
+                <a
+                  href={coworkChatUrl ?? "#"}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-transform hover:scale-105"
                   style={{ background: BRAND.sageDeep, color: BRAND.white }}
                 >
-                  Место · {s.price_coworking_hour ?? "300"} ₽/ч
-                </button>
+                  <Send className="h-3.5 w-3.5" /> Бронь в Telegram ·{" "}
+                  {s.price_coworking_hour ?? "300"} ₽/ч
+                </a>
               </div>
 
-              {/* Kids */}
+              {/* Kids — запись только через чат с менеджером */}
               <div className="rounded-2xl p-4" style={{ background: BRAND.white }}>
                 <p className="text-xs font-bold uppercase tracking-wider opacity-60">
                   Детская игровая
                 </p>
                 <p className="font-display mt-1 text-sm font-semibold" style={{ color: BRAND.sageDeep }}>
-                  до 15:00 · вход без почасовой тарификации
+                  до 15:00 · {s.price_kids_hour ?? "300"} ₽/час · безлимит{" "}
+                  {s.price_kids_unlimited ?? "1000"} ₽
                 </p>
-                <button
-                  onClick={() => openBooking({ type: "kids", date: selected })}
-                  className="mt-3 w-full rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-transform hover:scale-105"
+                <a
+                  href={kidsChatUrl ?? "#"}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-transform hover:scale-105"
                   style={{ background: BRAND.pink, color: BRAND.ink }}
                 >
-                  Записаться · {s.price_kids_hour ?? "300"} ₽ вход
-                </button>
+                  <Send className="h-3.5 w-3.5" /> Запись в Telegram
+                </a>
               </div>
             </div>
 
