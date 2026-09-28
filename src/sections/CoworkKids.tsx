@@ -100,7 +100,7 @@ export function CoworkingSection() {
             className="mt-8 inline-flex items-center gap-2 rounded-full px-8 py-4 font-display text-sm font-semibold uppercase tracking-wide transition-transform hover:scale-105"
             style={{ background: BRAND.ink, color: BRAND.cream }}
           >
-            Забронировать в Telegram <Send className="h-4 w-4" />
+            Забронировать <Send className="h-4 w-4" />
           </a>
           <p className="mt-3 text-xs opacity-60">
             Бронирование — через чат с менеджером: ответим и закрепим за вами
@@ -182,7 +182,7 @@ export function KidsSection() {
               className="mt-8 inline-flex items-center gap-2 rounded-full px-8 py-4 font-display text-sm font-semibold uppercase tracking-wide transition-transform hover:scale-105"
               style={{ background: BRAND.ink, color: BRAND.cream }}
             >
-              Записаться в Telegram <Send className="h-4 w-4" />
+              Записаться <Send className="h-4 w-4" />
             </a>
             <p className="mt-3 text-xs opacity-70">
               Запись — через чат с менеджером: подскажем свободные часы.

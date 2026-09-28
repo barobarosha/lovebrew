@@ -375,7 +375,7 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                   className="font-display mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold uppercase"
                   style={{ background: BRAND.ink, color: BRAND.cream }}
                 >
-                  <Send size={16} /> Написать в Telegram
+                  <Send size={16} /> {type === "kids" ? "Записаться" : "Бронь"}
                 </a>
               </div>
             ) : (

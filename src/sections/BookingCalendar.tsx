@@ -282,7 +282,7 @@ export function BookingCalendar() {
                   className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-transform hover:scale-105"
                   style={{ background: BRAND.sageDeep, color: BRAND.white }}
                 >
-                  <Send className="h-3.5 w-3.5" /> Бронь в Telegram ·{" "}
+                  <Send className="h-3.5 w-3.5" /> Бронь ·{" "}
                   {s.price_coworking_hour ?? "300"} ₽/ч
                 </a>
               </div>
@@ -303,7 +303,7 @@ export function BookingCalendar() {
                   className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-transform hover:scale-105"
                   style={{ background: BRAND.pink, color: BRAND.ink }}
                 >
-                  <Send className="h-3.5 w-3.5" /> Запись в Telegram
+                  <Send className="h-3.5 w-3.5" /> Записаться
                 </a>
               </div>
             </div>

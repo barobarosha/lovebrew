@@ -25,7 +25,7 @@ export function Services() {
       price: `${s.price_kids_hour ?? "300"} ₽/час · безлимит ${s.price_kids_unlimited ?? "1000"} ₽`,
       img: "/images/kids.jpg",
       href: managerChatUrl(s.telegram_manager, serviceChatMessage("kids")) ?? "#",
-      ctaLabel: "Записаться в Telegram",
+      ctaLabel: "Записаться",
     },
     {
       id: "coworking",
@@ -34,7 +34,7 @@ export function Services() {
       price: `от ${s.price_coworking_hour ?? "300"} ₽/час`,
       img: "/images/coworking.jpg",
       href: managerChatUrl(s.telegram_manager, serviceChatMessage("coworking")) ?? "#",
-      ctaLabel: "Бронь в Telegram",
+      ctaLabel: "Бронь",
     },
     {
       id: "menu",
