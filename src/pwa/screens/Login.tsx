@@ -19,10 +19,12 @@ export default function LoginScreen({
   const [name, setName] = useState("");
   const [token, setToken] = useState("");
   const [debugCode, setDebugCode] = useState("");
+  const [sentBySms, setSentBySms] = useState(false);
   const [error, setError] = useState("");
 
   const requestOtp = trpc.pwa.requestOtp.useMutation({
     onSuccess: (r) => {
+      setSentBySms(r.sentBySms);
       setDebugCode(r.debugCode ?? "");
       setStep("code");
       setError("");
@@ -65,7 +67,9 @@ export default function LoginScreen({
     },
     code: {
       title: "Код из SMS",
-      hint: "Отправили 4 цифры на ваш номер",
+      hint: sentBySms
+        ? "Отправили SMS с 4 цифрами на ваш номер"
+        : "Отправили 4 цифры на ваш номер",
     },
     name: {
       title: "Как к вам обращаться?",
@@ -154,6 +158,7 @@ export default function LoginScreen({
               setStep("phone");
               setCode("");
               setDebugCode("");
+              setSentBySms(false);
             }}
             className="w-full py-2 text-sm font-medium"
             style={{ color: BRAND.sageDeep }}

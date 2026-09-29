@@ -5,6 +5,7 @@ import { getDb } from "../queries/connection";
 import { customers, customerSessions, otpCodes } from "@db/schema";
 import { getRestoProvider } from "../quickresto/provider";
 import { getAllSettings } from "./settings";
+import { sendSms } from "./sms";
 import { syncCustomerNameToQuickResto } from "./qrNameSync";
 
 export type Customer = typeof customers.$inferSelect;
@@ -27,9 +28,9 @@ const OTP_TTL_MS = 10 * 60 * 1000;
 const SESSION_TTL_MS = 60 * 24 * 60 * 60 * 1000; // 60 дней
 
 /**
- * Запрос кода. SMS-шлюз пока не подключён (пилот), поэтому код возвращается
- * в ответе (debugCode) и показывается в интерфейсе. Когда появится SMS-провайдер
- * — здесь добавится отправка, а debugCode уберём.
+ * Запрос кода. Если подключён Prostor SMS (sms_login/sms_password в настройках) —
+ * код уходит по SMS и в ответе флаг sentBySms=true. Иначе — пилотный режим:
+ * код возвращается в ответе (debugCode) и показывается в интерфейсе.
  */
 export async function requestOtp(rawPhone: string) {
   const phone = normalizePhone(rawPhone);
@@ -47,12 +48,18 @@ export async function requestOtp(rawPhone: string) {
     code,
     expiresAt: new Date(Date.now() + OTP_TTL_MS),
   });
+  // SMS через Prostor SMS, если заданы ключи. Не отправилось — фолбэк на
+  // пилотный режим (код на экране), чтобы вход не ломался.
+  const sentBySms = await sendSms(
+    phone,
+    `Код входа в приложение «Лавбрю»: ${code}`,
+  );
   // Пилотный режим: SMS-шлюз не подключён, код показываем в интерфейсе.
   // Отключается настройкой otp_debug_mode="0" в админке (обязательно
   // выключить после подключения SMS — иначе вход по чужому номеру возможен).
   const s = await getAllSettings();
-  const debug = s.otp_debug_mode !== "0";
-  return { phone, debugCode: debug ? code : null };
+  const debug = !sentBySms && s.otp_debug_mode !== "0";
+  return { phone, sentBySms, debugCode: debug ? code : null };
 }
 
 export async function verifyOtp(rawPhone: string, code: string, name?: string) {

@@ -34,6 +34,11 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   // Пилот: "1" — код входа показывается в приложении (SMS-шлюз не подключён).
   // После подключения SMS обязательно поставить "0".
   otp_debug_mode: "1",
+  // Prostor SMS (prostor-sms.ru): логин/пароль HTTP API. Пусто = SMS не
+  // отправляются, код входа показывается на экране (пилотный режим).
+  // НЕ добавлять в PUBLIC_SETTING_KEYS — секреты только для сервера.
+  sms_login: "",
+  sms_password: "",
 };
 
 export const PUBLIC_SETTING_KEYS = [

@@ -57,6 +57,13 @@ const GROUPS: { title: string; keys: { key: string; label: string; hint?: string
     ],
   },
   {
+    title: "SMS-уведомления (Prostor SMS)",
+    keys: [
+      { key: "sms_login", label: "SMS логин (Prostor)", hint: "Логин HTTP API prostor-sms.ru. Пусто = код показывается на экране (пилот)" },
+      { key: "sms_password", label: "SMS пароль", secret: true, hint: "Пароль HTTP API prostor-sms.ru. Пусто = код показывается на экране (пилот)" },
+    ],
+  },
+  {
     title: "Безопасность",
     keys: [
       { key: "otp_debug_mode", label: "Пилотный вход (1/0)", hint: "1 — код входа показывается в приложении (SMS-шлюз не подключён). После подключения SMS обязательно поставьте 0!" },
