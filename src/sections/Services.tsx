@@ -13,7 +13,7 @@ export function Services() {
       id: "loft",
       title: "Лофт для мероприятий",
       desc: "Праздники под ключ, дни рождения, мастер-классы и киновечера — в выходные и праздничные дни",
-      price: `от ${s.price_loft_weekend ?? "3500"} ₽/ч`,
+      price: `${s.price_loft_weekend ?? "3500"} ₽/ч`,
       img: "/images/party.jpg",
       cta: () => openBooking({ type: "loft" }),
       ctaLabel: "Занять слот",

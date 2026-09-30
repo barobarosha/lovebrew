@@ -80,10 +80,10 @@ export function Hero() {
               style={{ background: BRAND.sage, color: BRAND.ink }}
             >
               <p className="font-display text-2xl font-bold">
-                {s.price_loft_weekday ?? "3000"} ₽/ч
+                {s.price_loft_weekend ?? "3500"} ₽/ч
               </p>
               <p className="text-xs font-semibold uppercase tracking-wider">
-                будни · выходные {s.price_loft_weekend ?? "3500"} ₽/ч
+                выходные и праздники
               </p>
             </div>
           </div>
