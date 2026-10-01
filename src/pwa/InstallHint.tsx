@@ -28,18 +28,32 @@ export function isStandaloneMode(): boolean {
   );
 }
 
-type Platform = "ios" | "android" | "other";
+type Browser =
+  | "ios-safari"
+  | "yandex"
+  | "firefox"
+  | "samsung"
+  | "opera"
+  | "chrome-android"
+  | "other";
 
-function detectPlatform(): Platform {
+/** Определяем браузер по User-Agent — чтобы шаги соответствовали тому,
+ *  что пользователь реально видит на экране (в Яндексе добавление
+ *  называется иначе, чем в Chrome и т.п.) */
+function detectBrowser(): Browser {
   const ua = navigator.userAgent;
-  if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
-  if (/Android/i.test(ua)) return "android";
+  if (/iPhone|iPad|iPod/i.test(ua)) return "ios-safari";
+  if (/YaBrowser\//i.test(ua)) return "yandex";
+  if (/SamsungBrowser\//i.test(ua)) return "samsung";
+  if (/Firefox\//i.test(ua)) return "firefox";
+  if (/OPR\/|Opera\//i.test(ua)) return "opera";
+  if (/Android/i.test(ua) && /Chrome\//i.test(ua)) return "chrome-android";
   return "other";
 }
 
 function steps(): { icon: typeof Share; text: string }[] {
-  const p = detectPlatform();
-  if (p === "ios") {
+  const b = detectBrowser();
+  if (b === "ios-safari") {
     return [
       {
         icon: Share,
@@ -55,15 +69,79 @@ function steps(): { icon: typeof Share; text: string }[] {
       },
     ];
   }
-  if (p === "android") {
+  if (b === "yandex") {
     return [
       {
         icon: MoreVertical,
-        text: "Нажмите ⋮ (меню) в правом верхнем углу браузера",
+        text: "В Яндекс Браузере нажмите ⋮ (меню) справа внизу экрана",
       },
       {
         icon: Smartphone,
-        text: "Выберите «На экран „Домой“» или «Установить приложение»",
+        text: "Выберите «Добавить на экран» (или «Установить приложение»)",
+      },
+      {
+        icon: Smartphone,
+        text: "Подтвердите — иконка Лавбрю появится на рабочем столе",
+      },
+    ];
+  }
+  if (b === "samsung") {
+    return [
+      {
+        icon: MoreVertical,
+        text: "В Samsung Internet нажмите ≡ (меню) справа внизу экрана",
+      },
+      {
+        icon: Smartphone,
+        text: "Выберите «Добавить страницу на» → «Главный экран»",
+      },
+      {
+        icon: Smartphone,
+        text: "Подтвердите — иконка Лавбрю появится на рабочем столе",
+      },
+    ];
+  }
+  if (b === "firefox") {
+    return [
+      {
+        icon: MoreVertical,
+        text: "В Firefox нажмите ⋮ (меню) в углу экрана",
+      },
+      {
+        icon: Smartphone,
+        text: "Выберите «Установить» (или «Добавить на главный экран»)",
+      },
+      {
+        icon: Smartphone,
+        text: "Подтвердите — иконка Лавбрю появится на рабочем столе",
+      },
+    ];
+  }
+  if (b === "opera") {
+    return [
+      {
+        icon: MoreVertical,
+        text: "В Opera нажмите ⋮ (меню) в правом верхнем углу",
+      },
+      {
+        icon: Smartphone,
+        text: "Выберите «Добавить на главный экран»",
+      },
+      {
+        icon: Smartphone,
+        text: "Подтвердите — иконка Лавбрю появится на рабочем столе",
+      },
+    ];
+  }
+  if (b === "chrome-android") {
+    return [
+      {
+        icon: MoreVertical,
+        text: "Нажмите ⋮ (меню) в правом верхнем углу Chrome",
+      },
+      {
+        icon: Smartphone,
+        text: "Выберите «Установить приложение» или «Добавить на главный экран»",
       },
       {
         icon: Smartphone,
@@ -76,6 +154,10 @@ function steps(): { icon: typeof Share; text: string }[] {
     {
       icon: Smartphone,
       text: "Выберите «На экран „Домой“» или «Установить приложение»",
+    },
+    {
+      icon: Smartphone,
+      text: "Подтвердите — иконка Лавбрю появится на рабочем столе",
     },
   ];
 }

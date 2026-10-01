@@ -10,6 +10,7 @@ import {
   CookingPot,
   Ruler,
   Coffee,
+  CalendarDays,
 } from "lucide-react";
 
 const FEATURES = [
@@ -121,11 +122,18 @@ export function LoftSection() {
                 <p className="text-xs font-bold uppercase tracking-wider opacity-60">
                   Будние дни
                 </p>
-                <p className="font-display mt-2 text-3xl font-bold">Не сдаётся</p>
-                <p className="mt-1 text-sm opacity-70">
-                  В будни лофт не арендуется — но следите за афишей: иногда там
-                  проходят открытые мероприятия
-                </p>
+                <div className="mt-2 flex items-start gap-3">
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
+                    style={{ background: BRAND.pink, color: BRAND.ink }}
+                  >
+                    <CalendarDays className="h-5 w-5" />
+                  </span>
+                  <p className="text-sm leading-relaxed opacity-80">
+                    В будни лофт не арендуется — но следите за афишей: иногда
+                    здесь проходят открытые мероприятия
+                  </p>
+                </div>
               </div>
             </div>
 

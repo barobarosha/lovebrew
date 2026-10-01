@@ -86,6 +86,13 @@ export function BookingCalendar() {
             ))}
           <span className="flex items-center gap-2 opacity-80">
             <span
+              className="h-2.5 w-2.5 rounded-sm"
+              style={{ background: BRAND.creamDeep }}
+            />
+            будни · лофт не сдаётся
+          </span>
+          <span className="flex items-center gap-2 opacity-80">
+            <span
               className="flex h-4 w-4 items-center justify-center rounded-full text-[9px]"
               style={{ background: BRAND.pink, color: BRAND.ink }}
             >
@@ -147,6 +154,11 @@ export function BookingCalendar() {
               ? Object.values(d.loft).every((v) => v === "past")
               : date < new Date().toISOString().slice(0, 10);
             const isSelected = selected === date;
+            // Будни (не праздники): лофт не сдаётся — заливаем серым,
+            // точки слотов не рисуем. День остаётся кликабельным:
+            // внизу доступны коворкинг и детская.
+            const weekdayClosed =
+              !isPast && !isRentableDate(date, holidays ?? undefined);
             return (
               <button
                 key={date}
@@ -159,7 +171,9 @@ export function BookingCalendar() {
                     ? BRAND.cream
                     : isPast
                       ? "transparent"
-                      : BRAND.white,
+                      : weekdayClosed
+                        ? BRAND.creamDeep
+                        : BRAND.white,
                   opacity: isPast ? 0.4 : 1,
                   boxShadow: isSelected
                     ? "0 8px 24px -12px rgba(47,49,40,0.4)"
@@ -170,7 +184,12 @@ export function BookingCalendar() {
                   <span
                     className="font-display text-sm font-semibold sm:text-base"
                     style={{
-                      color: isWeekendDate(date) && !isPast ? "#C4654F" : BRAND.ink,
+                      color:
+                        weekdayClosed
+                          ? "#8A8572"
+                          : isWeekendDate(date) && !isPast
+                            ? "#C4654F"
+                            : BRAND.ink,
                     }}
                   >
                     {dayNum}
@@ -185,7 +204,7 @@ export function BookingCalendar() {
                     </span>
                   )}
                 </span>
-                {d && !isPast && (
+                {d && !isPast && !weekdayClosed && (
                   <span className="mt-1 flex flex-wrap items-center justify-center gap-1">
                     {Object.entries(d.loft).map(([slot, st]) => (
                       <span

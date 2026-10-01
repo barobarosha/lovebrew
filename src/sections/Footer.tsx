@@ -1,6 +1,6 @@
 import { BRAND, useSiteContent } from "@/lib/site";
 import { useBooking } from "@/components/booking/BookingProvider";
-import { Clock, Mail, MapPin, Phone, Send } from "lucide-react";
+import { Clock, Mail, MapPin, MessageCircle, Phone, Send } from "lucide-react";
 
 export function Footer() {
   const content = useSiteContent();
@@ -40,6 +40,15 @@ export function Footer() {
               >
                 <Send className="h-4 w-4" /> Telegram
               </a>
+              <a
+                href="https://max.ru/u/f9LHodD0cOIIpS42X-DdMN2BhVevqI5OAo056RWQqKQnGdgR97W6nDjBhm0"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border-2 px-8 py-4 font-display text-sm font-semibold uppercase tracking-wide"
+                style={{ borderColor: BRAND.ink, color: BRAND.ink }}
+              >
+                <MessageCircle className="h-4 w-4" /> MAX
+              </a>
             </div>
           </div>
 
@@ -55,6 +64,12 @@ export function Footer() {
               },
               { icon: Phone, label: "Телефон", value: phone, href: `tel:${phone.replace(/[^+\d]/g, "")}` },
               { icon: Mail, label: "Почта", value: s.email ?? "love-brew@mail.ru", href: `mailto:${s.email ?? "love-brew@mail.ru"}` },
+              {
+                icon: MessageCircle,
+                label: "MAX",
+                value: "Мы в мессенджере MAX",
+                href: "https://max.ru/u/f9LHodD0cOIIpS42X-DdMN2BhVevqI5OAo056RWQqKQnGdgR97W6nDjBhm0",
+              },
               {
                 icon: Clock,
                 label: "Время работы",
@@ -124,12 +139,6 @@ export function Footer() {
               className="font-semibold uppercase tracking-wider hover:opacity-100"
             >
               Согласие
-            </a>
-            <a
-              href="/app"
-              className="font-semibold uppercase tracking-wider hover:opacity-100"
-            >
-              Приложение
             </a>
             <a
               href="https://baroshacode.ru/"

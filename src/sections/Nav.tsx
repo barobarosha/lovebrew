@@ -13,6 +13,9 @@ const LINKS = [
   ["Контакты", "#contacts"],
 ] as const;
 
+/** Ссылка «Приложение» — розовый акцент (BRAND.pink), отдельно от разделов */
+const APP_LINK_COLOR = "rgb(244, 194, 194)";
+
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -61,6 +64,13 @@ export function Nav() {
               {label}
             </a>
           ))}
+          <a
+            href="/app"
+            className="text-sm font-bold uppercase tracking-wide transition-opacity hover:opacity-80"
+            style={{ color: APP_LINK_COLOR }}
+          >
+            Приложение
+          </a>
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
@@ -105,6 +115,14 @@ export function Nav() {
                 {label}
               </a>
             ))}
+            <a
+              href="/app"
+              onClick={() => setOpen(false)}
+              className="font-display text-lg font-bold"
+              style={{ color: APP_LINK_COLOR }}
+            >
+              Приложение
+            </a>
             <button
               onClick={() => {
                 setOpen(false);
