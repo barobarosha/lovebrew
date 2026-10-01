@@ -5,6 +5,7 @@ export function MenuSection() {
   const ref = useReveal<HTMLElement>();
   const content = useSiteContent();
   const menu = content.data?.menu ?? [];
+  const menuSource = content.data?.menuSource ?? "site";
 
   const categories = useMemo(
     () => [...new Set(menu.map((m) => m.category))],
@@ -52,14 +53,14 @@ export function MenuSection() {
 
       {items.length === 0 && (
         <p className="rounded-3xl p-8 text-center opacity-60" style={{ background: BRAND.white }}>
-          Меню скоро появится — администратор ещё не добавил позиции.
+          Меню скоро появится.
         </p>
       )}
 
       <div className="grid gap-x-10 gap-y-1 sm:grid-cols-2">
-        {items.map((item) => (
+        {items.map((item, idx) => (
           <div
-            key={item.id}
+            key={`${item.category}-${item.name}-${idx}`}
             className="group flex items-baseline gap-3 border-b py-4"
             style={{ borderColor: BRAND.creamDeep }}
           >
@@ -83,7 +84,7 @@ export function MenuSection() {
               style={{ borderColor: BRAND.sage }}
             />
             <span className="font-display shrink-0 text-base font-bold">
-              {item.price} ₽
+              {item.price != null ? `${item.price} ₽` : ""}
             </span>
           </div>
         ))}
@@ -91,6 +92,9 @@ export function MenuSection() {
 
       <p className="mt-8 text-sm opacity-60">
         В день аренды лофта — скидка 20% на напитки по промокоду ЛЮБЛЮЛАВБРЮ
+        {menuSource === "quickresto" && (
+          <span className="ml-2 opacity-70">· цены из Quick Resto</span>
+        )}
       </p>
     </section>
   );

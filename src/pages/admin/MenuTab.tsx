@@ -38,6 +38,9 @@ const EMPTY: MenuForm = {
 
 export function MenuTab({ token }: { token: string }) {
   const list = trpc.admin.menu.useQuery({ token });
+  const settingsQuery = trpc.admin.settings.useQuery({ token });
+  const qrEnabled =
+    ((settingsQuery.data as Record<string, string> | undefined)?.qr_enabled ?? "0") === "1";
   const utils = trpc.useUtils();
   const [form, setForm] = useState<MenuForm | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -151,6 +154,14 @@ export function MenuTab({ token }: { token: string }) {
       {importMsg && (
         <p className="rounded-xl px-4 py-2 text-sm" style={{ background: BRAND.sage, color: BRAND.ink }}>
           {importMsg}
+        </p>
+      )}
+
+      {qrEnabled && (
+        <p className="rounded-xl px-4 py-3 text-sm" style={{ background: BRAND.creamDeep, color: BRAND.ink }}>
+          Включена интеграция с Quick Resto (Настройки → Quick Resto): сайт и приложение
+          показывают меню и цены из Quick Resto. Список ниже — запасной вариант на случай,
+          если интеграция выключена или облако недоступно; тестовые позиции можно удалить.
         </p>
       )}
 

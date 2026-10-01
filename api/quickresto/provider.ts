@@ -235,11 +235,15 @@ export class BackOfficeProvider implements RestoProvider {
       if (!categoryName && typeof catObj === "string") {
         categoryName = categories.get(catObj);
       }
+      // Цена блюда в BO API лежит в dishPrices (привязка к контексту
+      // цен/прайсу); корневых полей price/salePrice обычно нет — отсюда
+      // прочерк в приложении. pickNumberDeep пройдёт и по вложенным массивам.
       const price = pickNumberDeep(d, [
         "price",
         "salePrice",
         "cost",
         "priceValue",
+        "value",
       ]);
       items.push({
         id: extractGuid(d) ?? name,

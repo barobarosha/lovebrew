@@ -7,6 +7,7 @@ import { eventRegistrations, events, menuItems } from "@db/schema";
 import { getPublicSettings } from "../services/settings";
 import { getMonthCalendar } from "../services/availability";
 import { getYearHolidayDates } from "../services/holidays";
+import { getRestoProvider } from "../quickresto/provider";
 import {
   eventSummaryLine,
   notifyAdminEventRegistration,
@@ -26,12 +27,36 @@ export const siteRouter = createRouter({
   content: publicQuery.query(async () => {
     const settings = await getPublicSettings();
     const db = getDb();
+    // Меню: Quick Resto (если интеграция включена и отдала позиции),
+    // иначе — ручное меню из админки. Источник возвращаем клиенту.
+    const provider = await getRestoProvider();
+    if (provider) {
+      try {
+        const qrItems = await provider.getMenu();
+        if (qrItems.length) {
+          return {
+            settings,
+            menuSource: "quickresto" as const,
+            menu: qrItems.map((i) => ({
+              category: i.categoryName,
+              name: i.name,
+              description: i.description ?? null,
+              price: i.price,
+              volume: i.volume ?? null,
+              imageUrl: i.imageUrl ?? null,
+            })),
+          };
+        }
+      } catch (e) {
+        console.error("[quickresto] site menu failed, fallback to site menu:", (e as Error).message);
+      }
+    }
     const menu = await db
       .select()
       .from(menuItems)
       .where(eq(menuItems.isActive, true))
       .orderBy(asc(menuItems.sortOrder), asc(menuItems.id));
-    return { settings, menu };
+    return { settings, menuSource: "site" as const, menu };
   }),
 
   // Published event announcements (upcoming first)
