@@ -36,6 +36,44 @@ const EMPTY: MenuForm = {
   isActive: true,
 };
 
+type ImportItem = {
+  category: string;
+  name: string;
+  description?: string;
+  volume?: string;
+  price: number;
+};
+
+/** Выгрузка Quick Resto «Блюда» (TSV: строки категорий без цены, у блюд —
+ * базовая цена в 4-й колонке). Объём достаём из названия: «латте 0.3». */
+function parseQuickRestoTsv(text: string): ImportItem[] {
+  const out: ImportItem[] = [];
+  let category = "Прочее";
+  for (const line of text.split(/\r?\n/)) {
+    const c = line.split("\t").map((x) => x.trim());
+    const rawName = c[1] ?? "";
+    if (!rawName || /наименование/i.test(rawName)) continue;
+    const priceRaw = (c[3] ?? "").replace(/[\s₽]/g, "").replace(",", ".");
+    if (!priceRaw) {
+      // строка без цены — заголовок категории
+      category = rawName;
+      continue;
+    }
+    const price = Math.round(parseFloat(priceRaw));
+    if (!Number.isFinite(price) || price <= 0) continue;
+    let name = rawName;
+    let volume: string | undefined;
+    const m = rawName.match(/^(.*?)\s+(\d[.,]\d)$/);
+    if (m) {
+      name = m[1];
+      volume = `${m[2].replace(",", ".")} л`;
+    }
+    name = name.charAt(0).toUpperCase() + name.slice(1);
+    out.push({ category, name, volume, price });
+  }
+  return out;
+}
+
 export function MenuTab({ token }: { token: string }) {
   const list = trpc.admin.menu.useQuery({ token });
   const settingsQuery = trpc.admin.settings.useQuery({ token });
@@ -73,7 +111,7 @@ export function MenuTab({ token }: { token: string }) {
     setImportMsg(null);
     try {
       const text = await file.text();
-      let items: { category: string; name: string; description?: string; volume?: string; price: number }[];
+      let items: ImportItem[];
       if (file.name.endsWith(".json")) {
         const parsed = JSON.parse(text);
         if (!Array.isArray(parsed)) throw new Error("JSON должен быть массивом");
@@ -84,6 +122,9 @@ export function MenuTab({ token }: { token: string }) {
           volume: r.volume ? String(r.volume) : undefined,
           price: Number(r.price) || 0,
         }));
+      } else if (text.includes("\t") && /базовая цена|наименование/i.test(text)) {
+        // Выгрузка «Блюда» из Quick Resto (разделитель — табуляция)
+        items = parseQuickRestoTsv(text);
       } else {
         // CSV: category;name;volume;price;description  (разделитель ; или ,)
         const lines = text.split(/\r?\n/).filter((l) => l.trim());
@@ -114,8 +155,9 @@ export function MenuTab({ token }: { token: string }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-xl text-sm opacity-70">
-          Добавляйте позиции по одной или загрузите всё меню файлом (CSV:
-          категория;название;объём;цена;описание — или JSON).
+          Добавляйте позиции по одной или загрузите всё меню файлом:
+          выгрузка «Блюда» из Quick Resto (CSV), свой CSV
+          (категория;название;объём;цена;описание) или JSON.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -159,9 +201,10 @@ export function MenuTab({ token }: { token: string }) {
 
       {qrEnabled && (
         <p className="rounded-xl px-4 py-3 text-sm" style={{ background: BRAND.creamDeep, color: BRAND.ink }}>
-          Включена интеграция с Quick Resto (Настройки → Quick Resto): сайт и приложение
-          показывают меню и цены из Quick Resto. Список ниже — запасной вариант на случай,
-          если интеграция выключена или облако недоступно; тестовые позиции можно удалить.
+          Включена интеграция с Quick Resto (Настройки → Quick Resto): бонусы всегда идут
+          из облака, а меню — только если облако отдаёт цены. Иначе сайт и приложение
+          показывают меню ниже: обновляйте его выгрузкой «Блюда» из Quick Resto
+          (включите переключатель «заменить всё текущее меню»).
         </p>
       )}
 

@@ -33,7 +33,12 @@ export const siteRouter = createRouter({
     if (provider) {
       try {
         const qrItems = await provider.getMenu();
-        if (qrItems.length) {
+        // Меню из облака берём только если оно пригодное: цена есть
+        // минимум у половины позиций (иначе Quick Resto отдал список
+        // без цен из dishPrices или категории вместо блюд) — тогда
+        // показываем меню из админки.
+        const priced = qrItems.filter((i) => i.price != null).length;
+        if (qrItems.length >= 3 && priced * 2 >= qrItems.length) {
           return {
             settings,
             menuSource: "quickresto" as const,

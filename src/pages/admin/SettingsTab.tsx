@@ -48,7 +48,7 @@ const GROUPS: { title: string; keys: { key: string; label: string; hint?: string
   {
     title: "Интеграция Quick Resto",
     keys: [
-      { key: "qr_enabled", label: "Интеграция включена (1/0)", hint: "1 — приложение берёт меню и бонусы из Quick Resto; 0 — работает на данных сайта" },
+      { key: "qr_enabled", label: "Интеграция включена (1/0)", hint: "1 — бонусы из Quick Resto; меню — тоже из облака, если оно отдаёт цены (иначе показывается меню из раздела «Меню»)" },
       { key: "qr_layer", label: "Имя облака", hint: "Например «lavbrew» → lavbrew.quickresto.ru" },
       { key: "qr_login", label: "Логин Back Office API" },
       { key: "qr_password", label: "Пароль Back Office API", secret: true },

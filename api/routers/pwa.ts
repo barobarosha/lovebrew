@@ -165,7 +165,12 @@ export const pwaRouter = createRouter({
     if (provider) {
       try {
         const items = await provider.getMenu();
-        if (items.length) {
+        // Облако иногда отдаёт список без цен (цены живут в контекстах
+        // dishPrices) или вообще список категорий вместо блюд — такое меню
+        // не показываем: считаем его пригодным, только если цена есть
+        // минимум у половины позиций. Иначе — меню из админки.
+        const priced = items.filter((i) => i.price != null).length;
+        if (items.length >= 3 && priced * 2 >= items.length) {
           const byCat = new Map<string, typeof items>();
           for (const it of items) {
             const list = byCat.get(it.categoryName) ?? [];
