@@ -127,7 +127,7 @@ export async function getAppStats(): Promise<AppStats> {
     ORDER BY day
   `));
   const eventsByDay = (dayRows[0] as unknown as { day: string; c: number }[]).map(
-    (r) => ({ day: String(r.day), count: Number(r.c) }),
+    (r) => ({ day: String(r.day).slice(0, 10), count: Number(r.c) }),
   );
 
   return { dau, wau, mau, totalCustomers, totalEvents, funnel, bookingsBySource, eventsByDay };

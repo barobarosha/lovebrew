@@ -73,12 +73,18 @@ export function AnalyticsTab({ token }: { token: string }) {
               </div>
             ))}
           </div>
-          <div className="mt-5 flex gap-4 text-xs">
-            {(d.bookingsBySource.length ? d.bookingsBySource : [{ source: "—", count: 0 }]).map((b) => (
-              <span key={b.source} className="rounded-full px-3 py-1 font-semibold" style={{ background: BRAND.cream }}>
-                {b.source === "pwa" ? "из приложения" : b.source === "site" ? "с сайта" : b.source}: {b.count}
+          <div className="mt-5 flex flex-wrap gap-3 text-xs">
+            {d.bookingsBySource.length === 0 ? (
+              <span className="opacity-50">
+                Броней пока нет — здесь появится разбивка по источникам
               </span>
-            ))}
+            ) : (
+              d.bookingsBySource.map((b) => (
+                <span key={b.source} className="rounded-full px-3 py-1 font-semibold" style={{ background: BRAND.cream }}>
+                  {b.source === "pwa" ? "из приложения" : b.source === "site" ? "с сайта" : b.source}: {b.count}
+                </span>
+              ))
+            )}
           </div>
         </section>
 
@@ -92,7 +98,7 @@ export function AnalyticsTab({ token }: { token: string }) {
               <p className="text-sm opacity-50">Данных пока нет — появятся после первых запусков приложения</p>
             )}
             {d.eventsByDay.map((e) => (
-              <div key={e.day} className="flex flex-1 flex-col items-center gap-1">
+              <div key={e.day} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
                 <div
                   className="w-full rounded-t-md"
                   style={{
