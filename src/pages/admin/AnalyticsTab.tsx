@@ -1,6 +1,21 @@
 import { trpc } from "@/providers/trpc";
 import { BRAND } from "@/lib/site";
-import { Users, Activity, MousePointerClick } from "lucide-react";
+import { Users, Activity, MousePointerClick, HelpCircle } from "lucide-react";
+
+/** Значок «?» с всплывающей подсказкой при наведении */
+function MetricTip({ text }: { text: string }) {
+  return (
+    <span className="group relative inline-flex">
+      <HelpCircle className="h-3.5 w-3.5 cursor-help opacity-50 transition-opacity hover:opacity-100" />
+      <span
+        className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-56 -translate-x-1/2 rounded-xl px-3 py-2 text-[11px] font-medium normal-case leading-snug tracking-normal opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
+        style={{ background: BRAND.ink, color: BRAND.white }}
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
 
 export function AnalyticsTab({ token }: { token: string }) {
   const stats = trpc.admin.appStats.useQuery({ token, }, { refetchInterval: 60_000 });
@@ -20,14 +35,15 @@ export function AnalyticsTab({ token }: { token: string }) {
       {/* Метрики */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "DAU", value: d.dau, hint: "активные за день" },
-          { label: "WAU", value: d.wau, hint: "активные за неделю" },
-          { label: "MAU", value: d.mau, hint: "активные за месяц" },
-          { label: "Клиенты", value: d.totalCustomers, hint: "всего в приложении" },
+          { label: "DAU", value: d.dau, hint: "гости за день", tip: "DAU (Daily Active Users) — сколько уникальных пользователей открывали приложение за сегодня" },
+          { label: "WAU", value: d.wau, hint: "гости за неделю", tip: "WAU (Weekly Active Users) — уникальные пользователи за последние 7 дней" },
+          { label: "MAU", value: d.mau, hint: "гости за месяц", tip: "MAU (Monthly Active Users) — уникальные пользователи за последние 30 дней" },
+          { label: "Клиенты", value: d.totalCustomers, hint: "всего в приложении", tip: null },
         ].map((m) => (
           <div key={m.label} className="rounded-3xl p-5" style={{ background: BRAND.white }}>
-            <p className="font-display text-xs font-bold uppercase tracking-wider" style={{ color: BRAND.sageDeep }}>
+            <p className="font-display flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider" style={{ color: BRAND.sageDeep }}>
               {m.label}
+              {m.tip && <MetricTip text={m.tip} />}
             </p>
             <p className="font-display mt-2 text-4xl font-extrabold">{m.value}</p>
             <p className="mt-1 text-xs opacity-50">{m.hint}</p>

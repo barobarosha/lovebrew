@@ -20,12 +20,11 @@ export default function HomeScreen() {
       {/* Шапка */}
       <div className="flex items-center justify-between">
         <div>
-          <p
-            className="font-display text-3xl font-extrabold uppercase leading-none"
-            style={{ color: BRAND.ink }}
-          >
-            Лавбрю
-          </p>
+          <img
+            src="/images/logo-lb.png"
+            alt="Лавбрю"
+            className="h-9 w-auto"
+          />
           <p
             className="mt-1 text-[11px] font-semibold uppercase tracking-[0.25em]"
             style={{ color: BRAND.sageDeep }}
