@@ -34,6 +34,17 @@ export async function trackEvent(
   }
 }
 
+// Ключ уникального пользователя: id клиента, если авторизован, иначе
+// анонимный session_key. ВАЖНО: один и тот же человек до и после входа
+// считается как два разных «гостя» — склеить их можно только на клиенте
+// (session_key живёт в localStorage и не знает будущий customer_id).
+const VISITOR_KEY = "COALESCE(CAST(customer_id AS CHAR), session_key)";
+
+// Активность считаем строго от полуночи по московскому времени
+// (UTC+3 круглый год): «за сегодня» = с 00:00 МСК, «за неделю» — 7
+// календарных дней включая сегодня, «за месяц» — 30 дней включая сегодня.
+const MSK_START = "DATE_SUB(DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+03:00')), INTERVAL ";
+
 export interface AppStats {
   dau: number;
   wau: number;
@@ -48,17 +59,19 @@ export interface AppStats {
 export async function getAppStats(): Promise<AppStats> {
   const db = getDb();
 
-  const active = async (days: number) => {
-    const rows = await db.execute(sql`
-      SELECT COUNT(DISTINCT COALESCE(CAST(customer_id AS CHAR), session_key)) AS c
+  // daysBack: 0 = сегодня (с 00:00 МСК), 6 = последние 7 календарных дней,
+  // 29 = последние 30 календарных дней.
+  const active = async (daysBack: number) => {
+    const rows = await db.execute(sql.raw(`
+      SELECT COUNT(DISTINCT ${VISITOR_KEY}) AS c
       FROM analytics_events
-      WHERE created_at >= DATE_SUB(NOW(), INTERVAL ${days} DAY)
+      WHERE created_at >= CONVERT_TZ(${MSK_START}${daysBack} DAY), '+03:00', '+00:00')
         AND (customer_id IS NOT NULL OR session_key IS NOT NULL)
-    `);
+    `));
     return Number((rows[0] as unknown as { c: number }[])[0]?.c ?? 0);
   };
 
-  const [dau, wau, mau] = await Promise.all([active(1), active(7), active(30)]);
+  const [dau, wau, mau] = await Promise.all([active(0), active(6), active(29)]);
 
   const customersRows = await db.execute(
     sql`SELECT COUNT(*) AS c FROM customers`,
@@ -74,6 +87,8 @@ export async function getAppStats(): Promise<AppStats> {
     (totalRows[0] as unknown as { c: number }[])[0]?.c ?? 0,
   );
 
+  // Воронка: уникальные посетители (а не события — один человек может
+  // открывать меню десять раз) за последние 30 календарных дней по МСК.
   const funnelDefs: [string, string][] = [
     ["pwa_open", "Открыли приложение"],
     ["pwa_login", "Вошли по телефону"],
@@ -83,10 +98,11 @@ export async function getAppStats(): Promise<AppStats> {
   ];
   const funnel: AppStats["funnel"] = [];
   for (const [event, label] of funnelDefs) {
-    const rows = await db.execute(sql`
-      SELECT COUNT(*) AS c FROM analytics_events
-      WHERE event = ${event} AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-    `);
+    const rows = await db.execute(sql.raw(`
+      SELECT COUNT(DISTINCT ${VISITOR_KEY}) AS c FROM analytics_events
+      WHERE event = '${event}'
+        AND created_at >= CONVERT_TZ(${MSK_START}29 DAY), '+03:00', '+00:00')
+    `));
     funnel.push({
       event,
       label,
@@ -101,13 +117,15 @@ export async function getAppStats(): Promise<AppStats> {
     (r) => ({ source: r.source, count: Number(r.c) }),
   );
 
-  const dayRows = await db.execute(sql`
-    SELECT DATE(created_at) AS day, COUNT(*) AS c
+  // График: дни по московскому календарю (UTC+3), иначе вечерние события
+  // уезжают в «завтра».
+  const dayRows = await db.execute(sql.raw(`
+    SELECT DATE(CONVERT_TZ(created_at, '+00:00', '+03:00')) AS day, COUNT(*) AS c
     FROM analytics_events
-    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
-    GROUP BY DATE(created_at)
+    WHERE created_at >= CONVERT_TZ(${MSK_START}13 DAY), '+03:00', '+00:00')
+    GROUP BY day
     ORDER BY day
-  `);
+  `));
   const eventsByDay = (dayRows[0] as unknown as { day: string; c: number }[]).map(
     (r) => ({ day: String(r.day), count: Number(r.c) }),
   );
