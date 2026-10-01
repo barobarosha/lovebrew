@@ -474,7 +474,7 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                               <span className="block text-[10px] font-medium">занято</span>
                             )}
                             {disabled && st === "blocked" && (
-                              <span className="block text-[10px] font-medium">закрыто</span>
+                              <span className="block text-[10px] font-medium">занято</span>
                             )}
                           </button>
                         );

@@ -20,9 +20,9 @@ import { ChevronLeft, ChevronRight, CalendarDays, Send } from "lucide-react";
 const WEEKDAYS = ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"];
 
 const SLOT_STYLE: Record<SlotStatus, { dot: string; label: string }> = {
-  available: { dot: BRAND.sageDeep, label: "свободно" },
+  available: { dot: "#6A8F5A", label: "свободно" },
   booked: { dot: "#C4654F", label: "занято" },
-  blocked: { dot: "#B9B4A4", label: "закрыто" },
+  blocked: { dot: "#C4654F", label: "занято" }, // закрытый админом слот показываем как занятый
   past: { dot: "#D8D4C6", label: "прошло" },
 };
 
@@ -74,7 +74,7 @@ export function BookingCalendar() {
         </h2>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-semibold">
           {(Object.keys(SLOT_STYLE) as SlotStatus[])
-            .filter((k) => k !== "past")
+            .filter((k) => k !== "past" && k !== "blocked")
             .map((k) => (
               <span key={k} className="flex items-center gap-2 opacity-80">
                 <span
