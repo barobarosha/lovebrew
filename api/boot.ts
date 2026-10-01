@@ -40,12 +40,16 @@ if (env.isProduction) {
 }
 
 app.use("/api/trpc/*", async (c) => {
-  return fetchRequestHandler({
+  // API-ответы никогда не кэшируем — ни браузером, ни CDN (DDoS-Guard):
+  // настройки (чат менеджера, цены, меню) должны быть всегда свежими.
+  const res = await fetchRequestHandler({
     endpoint: "/api/trpc",
     req: c.req.raw,
     router: appRouter,
     createContext,
   });
+  res.headers.set("Cache-Control", "no-store");
+  return res;
 });
 // Webhook статусов мобильной авторизации SMS Aero (callbackUrl в mobile-id/send).
 // Тело: { id, status, number }. Статусы мы поллим сами через mobile-id/status,
