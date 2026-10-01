@@ -47,6 +47,11 @@ app.use("/api/trpc/*", async (c) => {
     createContext,
   });
 });
+// Webhook статусов мобильной авторизации SMS Aero (callbackUrl в mobile-id/send).
+// Тело: { id, status, number }. Статусы мы поллим сами через mobile-id/status,
+// поэтому здесь просто подтверждаем приём — SMS Aero ждёт HTTP 200.
+app.post("/api/smsaero/callback", (c) => c.json({ ok: true }));
+
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
 export default app;

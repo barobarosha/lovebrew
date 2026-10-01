@@ -68,7 +68,7 @@ export default function LoginScreen({
     code: {
       title: "Код из SMS",
       hint: sentBySms
-        ? "Отправили SMS с 4 цифрами на ваш номер"
+        ? "Подтвердите вход на телефоне (SIM-PUSH) или введите код из SMS"
         : "Отправили 4 цифры на ваш номер",
     },
     name: {
@@ -153,6 +153,16 @@ export default function LoginScreen({
           >
             {verifyOtp.isPending ? "Входим…" : "Войти"}
           </button>
+          {sentBySms && (
+            <button
+              disabled={verifyOtp.isPending}
+              onClick={() => verifyOtp.mutate({ phone, code: "0000" })}
+              className="w-full rounded-full py-3 font-semibold disabled:opacity-60"
+              style={{ background: BRAND.sage, color: BRAND.ink }}
+            >
+              Я подтвердил(а) вход на телефоне
+            </button>
+          )}
           <button
             onClick={() => {
               setStep("phone");

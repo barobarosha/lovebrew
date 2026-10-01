@@ -56,10 +56,11 @@ const GROUPS: { title: string; keys: { key: string; label: string; hint?: string
     ],
   },
   {
-    title: "SMS-уведомления (Prostor SMS)",
+    title: "Мобильная авторизация (SMS Aero)",
     keys: [
-      { key: "sms_login", label: "SMS логин (Prostor)", hint: "Логин HTTP API prostor-sms.ru. Пусто = код показывается на экране (пилот)" },
-      { key: "sms_password", label: "SMS пароль", secret: true, hint: "Пароль HTTP API prostor-sms.ru. Пусто = код показывается на экране (пилот)" },
+      { key: "sms_aero_email", label: "E-mail аккаунта SMS Aero", hint: "Логин от smsaero.ru. Пусто = код показывается на экране (пилот)" },
+      { key: "sms_aero_api_key", label: "API-ключ SMS Aero", secret: true, hint: "ЛК → Настройки → API и SMPP. С тестовым ключом SMS не отправляются, код всегда 1234" },
+      { key: "sms_aero_sign", label: "Имя отправителя (sign)", hint: "Для тестового ключа — «SMS Aero». Для боевого — активное имя отправителя из ЛК" },
     ],
   },
   {

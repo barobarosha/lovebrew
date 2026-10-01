@@ -5,7 +5,7 @@ import { getDb } from "../queries/connection";
 import { customers, customerSessions, otpCodes } from "@db/schema";
 import { getRestoProvider } from "../quickresto/provider";
 import { getAllSettings } from "./settings";
-import { sendSms } from "./sms";
+import { AERO_STATUS, aeroSend, aeroStatus, aeroVerify } from "./smsAero";
 import { syncCustomerNameToQuickResto } from "./qrNameSync";
 
 export type Customer = typeof customers.$inferSelect;
@@ -28,11 +28,13 @@ const OTP_TTL_MS = 10 * 60 * 1000;
 const SESSION_TTL_MS = 60 * 24 * 60 * 60 * 1000; // 60 дней
 
 /**
- * Запрос кода. Если подключён Prostor SMS (sms_login/sms_password в настройках) —
- * код уходит по SMS и в ответе флаг sentBySms=true. Иначе — пилотный режим:
- * код возвращается в ответе (debugCode) и показывается в интерфейсе.
+ * Запрос кода. Если подключена мобильная авторизация SMS Aero
+ * (sms_aero_email/sms_aero_api_key в настройках) — абоненту приходит SIM-PUSH
+ * или SMS с кодом, в ответе флаг sentBySms=true. Иначе (или при сбое API) —
+ * пилотный режим: код возвращается в ответе (debugCode) и показывается
+ * в интерфейсе, как и раньше.
  */
-export async function requestOtp(rawPhone: string) {
+export async function requestOtp(rawPhone: string, callbackUrl: string) {
   const phone = normalizePhone(rawPhone);
   if (!phone) {
     throw new TRPCError({
@@ -42,24 +44,32 @@ export async function requestOtp(rawPhone: string) {
   }
   const db = getDb();
   await db.delete(otpCodes).where(eq(otpCodes.phone, phone));
+
+  // Мобильная авторизация SMS Aero: сессия с их стороны, id храним в поле
+  // code с префиксом "aero:" (схему БД не меняем). null — ключи не заданы
+  // или API недоступен → фолбэк на пилотный режим.
+  const aeroId = await aeroSend(phone, callbackUrl);
+  if (aeroId) {
+    await db.insert(otpCodes).values({
+      phone,
+      code: `aero:${aeroId}`,
+      expiresAt: new Date(Date.now() + OTP_TTL_MS),
+    });
+    return { phone, sentBySms: true, debugCode: null };
+  }
+
   const code = String(randomInt(1000, 10000));
   await db.insert(otpCodes).values({
     phone,
     code,
     expiresAt: new Date(Date.now() + OTP_TTL_MS),
   });
-  // SMS через Prostor SMS, если заданы ключи. Не отправилось — фолбэк на
-  // пилотный режим (код на экране), чтобы вход не ломался.
-  const sentBySms = await sendSms(
-    phone,
-    `Код входа в приложение «Лавбрю»: ${code}`,
-  );
   // Пилотный режим: SMS-шлюз не подключён, код показываем в интерфейсе.
   // Отключается настройкой otp_debug_mode="0" в админке (обязательно
   // выключить после подключения SMS — иначе вход по чужому номеру возможен).
   const s = await getAllSettings();
-  const debug = !sentBySms && s.otp_debug_mode !== "0";
-  return { phone, sentBySms, debugCode: debug ? code : null };
+  const debug = s.otp_debug_mode !== "0";
+  return { phone, sentBySms: false, debugCode: debug ? code : null };
 }
 
 export async function verifyOtp(rawPhone: string, code: string, name?: string) {
@@ -88,7 +98,31 @@ export async function verifyOtp(rawPhone: string, code: string, name?: string) {
       message: "Слишком много попыток — запросите код заново",
     });
   }
-  if (otp.code !== code.trim()) {
+
+  if (otp.code.startsWith("aero:")) {
+    // Сессия мобильной авторизации SMS Aero. Два пути подтверждения:
+    // 1) абонент нажал «Принять» в SIM-PUSH — статус уже SUCCESS, код не нужен;
+    // 2) пришла SMS с OTP — проверяем код через mobile-id/verify.
+    const aeroId = parseInt(otp.code.slice(5), 10);
+    const status = await aeroStatus(aeroId);
+    if (status !== AERO_STATUS.SUCCESS) {
+      const result = await aeroVerify(aeroId, code.trim());
+      if (result === "wrong") {
+        await db
+          .update(otpCodes)
+          .set({ attempts: otp.attempts + 1 })
+          .where(eq(otpCodes.id, otp.id));
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Неверный код" });
+      }
+      if (result === "error") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Не удалось проверить код — подтвердите вход на телефоне или запросите код заново",
+        });
+      }
+    }
+  } else if (otp.code !== code.trim()) {
     await db
       .update(otpCodes)
       .set({ attempts: otp.attempts + 1 })

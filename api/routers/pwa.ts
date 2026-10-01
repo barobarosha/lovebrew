@@ -52,7 +52,10 @@ export const pwaRouter = createRouter({
       rateLimitOrThrow(`otp-req:ip:${ip}`, 15, 10 * 60 * 1000);
       const phoneKey = input.phone.replace(/\D/g, "").slice(-10) || input.phone;
       rateLimitOrThrow(`otp-req:phone:${phoneKey}`, 3, 10 * 60 * 1000);
-      return requestOtp(input.phone);
+      // Webhook для статусов SMS Aero (обязательный параметр их API).
+      // Статусы мы дополнительно поллим сами, webhook — дублирующий канал.
+      const origin = new URL(ctx.req.url).origin;
+      return requestOtp(input.phone, `${origin}/api/smsaero/callback`);
     }),
 
   verifyOtp: publicQuery
