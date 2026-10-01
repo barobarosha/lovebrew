@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Coffee,
   Gift,
@@ -21,6 +21,12 @@ import BonusesScreen from "./screens/Bonuses";
 import EventsScreen, { BookingSheet } from "./screens/Events";
 import ProfileScreen from "./screens/Profile";
 import LoginScreen from "./screens/Login";
+import {
+  InstallHintModal,
+  installHintSeen,
+  isStandaloneMode,
+  markInstallHintSeen,
+} from "./InstallHint";
 
 const TABS: { id: PwaTab; label: string; icon: typeof HomeIcon }[] = [
   { id: "home", label: "Главная", icon: HomeIcon },
@@ -35,6 +41,23 @@ export default function PwaApp() {
   const [customerToken, setTokenState] = useState(getCustomerToken());
   const [loginOpen, setLoginOpen] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [installHintOpen, setInstallHintOpen] = useState(false);
+  const prevToken = useRef(customerToken);
+
+  // Первая авторизация (токен появился при этой сессии) — один раз
+  // предлагаем добавить приложение на экран «Домой»
+  useEffect(() => {
+    const was = prevToken.current;
+    prevToken.current = customerToken;
+    if (
+      !was &&
+      customerToken.length >= 10 &&
+      !isStandaloneMode() &&
+      !installHintSeen()
+    ) {
+      setInstallHintOpen(true);
+    }
+  }, [customerToken]);
 
   const trackMutation = trpc.pwa.track.useMutation();
   const track = useCallback(
@@ -140,6 +163,15 @@ export default function PwaApp() {
           )}
 
           {bookingOpen && <BookingSheet onClose={() => setBookingOpen(false)} />}
+
+          {installHintOpen && (
+            <InstallHintModal
+              onClose={() => {
+                markInstallHintSeen();
+                setInstallHintOpen(false);
+              }}
+            />
+          )}
         </div>
       </div>
     </PwaContext.Provider>

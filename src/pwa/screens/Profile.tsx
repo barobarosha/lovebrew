@@ -3,6 +3,7 @@ import { Check, LogOut, Pencil, Ticket } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { useMe, usePwa } from "../store";
 import { BRAND, bookingTypeLabel, formatDateRu, slotLabel } from "@/lib/site";
+import { InstallHintCard } from "../InstallHint";
 
 const STATUS_LABEL: Record<string, { text: string; color: string }> = {
   new: { text: "на подтверждении", color: "#B0892F" },
@@ -172,6 +173,9 @@ export default function ProfileScreen() {
           </div>
         </div>
       )}
+
+      {/* Как добавить приложение на экран «Домой» */}
+      <InstallHintCard />
 
       {/* Выход */}
       <button
