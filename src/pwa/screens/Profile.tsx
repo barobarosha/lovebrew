@@ -77,7 +77,7 @@ export default function ProfileScreen() {
             <>
               <div>
                 <p className="font-display text-xl font-bold">
-                  {me.data?.name || "Гость Лавбрю"}
+                  {me.data?.name || "Гость"}
                 </p>
                 <p className="mt-0.5 text-sm" style={{ color: BRAND.sageDeep }}>
                   {me.data?.phoneFormatted}

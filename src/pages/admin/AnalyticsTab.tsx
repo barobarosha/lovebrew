@@ -132,7 +132,7 @@ export function AnalyticsTab({ token }: { token: string }) {
             <tbody>
               {customers.data?.map((c) => (
                 <tr key={c.id} className="border-t" style={{ borderColor: BRAND.creamDeep }}>
-                  <td className="py-2.5 pr-4 font-semibold">{c.name || "—"}</td>
+                  <td className="py-2.5 pr-4 font-semibold">{c.name || "Гость"}</td>
                   <td className="py-2.5 pr-4">+{c.phone}</td>
                   <td className="py-2.5 pr-4">
                     {c.qrCustomerGuid ? (

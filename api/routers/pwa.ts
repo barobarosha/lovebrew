@@ -305,7 +305,7 @@ export const pwaRouter = createRouter({
     .mutation(async ({ input, ctx }) => {
       rateLimitOrThrow(`pwa-booking:ip:${clientIp(ctx.req)}`, 10, 10 * 60 * 1000);
       const customer = await assertCustomer(input.token);
-      const name = customer.name || "Гость Лавбрю";
+      const name = customer.name || "Гость";
       const phone = formatPhone(customer.phone);
 
       if (input.type === "kids") {
@@ -446,7 +446,7 @@ export const pwaRouter = createRouter({
       const [regResult] = await db.insert(eventRegistrations).values({
         eventId: ev.id,
         customerId: customer.id,
-        name: customer.name || "Гость Лавбрю",
+        name: customer.name || "Гость",
         phone: formatPhone(customer.phone),
         status: "new",
       });

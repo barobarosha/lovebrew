@@ -56,11 +56,16 @@ export interface RestoProvider {
   /** Найти клиента по номеру телефона (нормализованный, 79XXXXXXXXX) */
   findCustomerByPhone(phone: string): Promise<RestoCustomerRef | null>;
 
-  /** Создать клиента в CRM Quick Resto */
+  /** Создать клиента в CRM Quick Resto (только /bonuses/putCustomer) */
   createCustomer(input: {
     phone: string;
     name: string;
   }): Promise<RestoCustomerRef | null>;
+
+  /** Обновить имя клиента в CRM (только /bonuses/putCustomer, с полным
+   *  набором полей: customerGuid, version, firstName, contactMethods).
+   *  false — клиент не найден в CRM */
+  updateCustomerName(phone: string, name: string): Promise<boolean>;
 
   /** Баланс бонусного счёта по телефону (null — клиент не найден / нет счёта) */
   getBonusBalanceByPhone(phone: string): Promise<RestoBonusBalance | null>;

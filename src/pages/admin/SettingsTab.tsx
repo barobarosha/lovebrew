@@ -53,6 +53,7 @@ const GROUPS: { title: string; keys: { key: string; label: string; hint?: string
       { key: "qr_login", label: "Логин Back Office API" },
       { key: "qr_password", label: "Пароль Back Office API", secret: true },
       { key: "qr_account_guid", label: "GUID типа бонусного счёта", hint: "Можно оставить пустым — возьмём первый из списка автоматически" },
+      { key: "qr_sale_place", label: "Место реализации (docId)", hint: "вида sale_place-250523065903399y; пусто — не задавать" },
     ],
   },
   {

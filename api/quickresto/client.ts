@@ -6,8 +6,14 @@
  * - Авторизация: HTTP Basic (логин/пароль пользователя Back Office)
  * - Универсальные CRUD: GET /api/list, POST /api/create|update|remove
  *   с параметрами moduleName и className
- * - Бонусная подсистема: POST /bonuses/filterCustomers|getCustomer|balance|
- *   operationHistory
+ * - Бонусная подсистема: POST /bonuses/filterCustomers|getCustomer|
+ *   putCustomer|balance|operationHistory
+ *
+ * ВАЖНО: любые создания/правки клиентов — только /bonuses/putCustomer
+ * и всегда с полным набором полей (customerGuid, version, firstName,
+ * contactMethods). Универсальный /api/update модуля crm.customer
+ * ОБНУЛЯЕТ все непереданные поля — так на проде стёрся телефон
+ * живого клиента (contactMethods стало []). /api/update не используем.
  */
 
 export class QuickRestoError extends Error {
@@ -56,7 +62,10 @@ export class BackOfficeClient {
         method,
         headers: {
           Authorization: this.authHeader,
-          "Content-Type": "application/json",
+          // charset=utf-8 фиксируем явно: имена клиентов — кириллица,
+          // не должно быть потерь кодировки ни в запросе, ни в ответе
+          "Content-Type": "application/json; charset=utf-8",
+          Accept: "application/json; charset=utf-8",
           Connection: "keep-alive",
         },
         body: body === undefined ? undefined : JSON.stringify(body),
@@ -122,6 +131,7 @@ export class BackOfficeClient {
     operation:
       | "filterCustomers"
       | "getCustomer"
+      | "putCustomer"
       | "balance"
       | "operationHistory",
     body: Record<string, unknown>,

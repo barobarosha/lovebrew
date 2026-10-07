@@ -46,6 +46,19 @@ function pickString(obj: Json, ...keys: string[]): string | undefined {
   return undefined;
 }
 
+/**
+ * Имя, пришедшее из Quick Resto, считаем валидным, только если в нём
+ * минимум 2 символа и все они — буквы (кириллица/латиница), пробел,
+ * дефис или апостроф. Защита от боевого бага: кривой ответ API
+ * клал в customers.name один эмодзи вместо имени.
+ */
+export function isValidQrName(v: string | undefined | null): v is string {
+  if (!v) return false;
+  const t = v.trim();
+  if (t.length < 2) return false;
+  return /^[A-Za-zА-Яа-яЁё\s\-']+$/.test(t);
+}
+
 function pickNumberDeep(v: unknown, keys: string[], depth = 0): number | null {
   if (depth > 4 || v == null || typeof v !== "object") return null;
   if (Array.isArray(v)) {
@@ -73,6 +86,25 @@ function extractGuid(obj: Json): string | undefined {
   return pickString(obj, "customerGuid", "guid", "id", "customerId");
 }
 
+/** Глубокий поиск массива contactMethods в объекте клиента */
+function findContactMethods(v: unknown, depth = 0): Json[] {
+  if (depth > 3 || v == null || typeof v !== "object") return [];
+  if (Array.isArray(v)) return [];
+  const obj = v as Json;
+  const direct = obj["contactMethods"];
+  if (Array.isArray(direct)) return asArray(direct);
+  for (const val of Object.values(obj)) {
+    const found = findContactMethods(val, depth + 1);
+    if (found.length) return found;
+  }
+  return [];
+}
+
+/** Способы связи по умолчанию — телефон клиента */
+function defaultContactMethods(phone: string): Json[] {
+  return [{ type: "phone", entry: "manual", key: phone }];
+}
+
 /* ------------------------------------------------------------------ */
 /* BackOfficeProvider — реализация на бесплатном Back Office API       */
 /* ------------------------------------------------------------------ */
@@ -82,10 +114,16 @@ export class BackOfficeProvider implements RestoProvider {
   private accountGuidCache: string | null = null;
   private readonly client: BackOfficeClient;
   private readonly configuredAccountGuid: string;
+  private readonly configuredSalePlace: string;
 
-  constructor(client: BackOfficeClient, configuredAccountGuid: string) {
+  constructor(
+    client: BackOfficeClient,
+    configuredAccountGuid: string,
+    configuredSalePlace = "",
+  ) {
     this.client = client;
     this.configuredAccountGuid = configuredAccountGuid;
+    this.configuredSalePlace = configuredSalePlace;
   }
 
   async ping() {
@@ -119,6 +157,15 @@ export class BackOfficeProvider implements RestoProvider {
     return guid;
   }
 
+  /** Полная карточка клиента из бонусной подсистемы по GUID */
+  private async getCustomerByGuid(guid: string): Promise<Json | null> {
+    const res = await this.client.bonuses("getCustomer", { customerGuid: guid });
+    if (res && typeof res === "object" && !Array.isArray(res)) {
+      return res as Json;
+    }
+    return firstArrayDeep(res)[0] ?? null;
+  }
+
   async findCustomerByPhone(phone: string): Promise<RestoCustomerRef | null> {
     const res = await this.client.bonuses("filterCustomers", {
       search: phone,
@@ -129,9 +176,11 @@ export class BackOfficeProvider implements RestoProvider {
     const items = firstArrayDeep(res);
     const found = items.find((it) => extractGuid(it));
     if (!found) return null;
+    // Имя из QR берём только валидное (не мусор из одного эмодзи и т.п.)
+    const rawName = pickString(found, "firstName", "name");
     return {
       guid: extractGuid(found)!,
-      firstName: pickString(found, "firstName", "name"),
+      firstName: isValidQrName(rawName) ? rawName.trim() : undefined,
       phone: pickString(found, "phone", "phoneNumber") ?? phone,
     };
   }
@@ -143,20 +192,62 @@ export class BackOfficeProvider implements RestoProvider {
     // Сначала ищем — вдруг клиент уже есть в CRM (покупал на кассе)
     const existing = await this.findCustomerByPhone(input.phone).catch(() => null);
     if (existing) return existing;
-    const created = await this.client.create(
-      QR_MODULES.customer.moduleName,
-      QR_MODULES.customer.className,
-      {
-        firstName: input.name || "Гость Лавбрю",
-        phone: input.phone,
-        phoneNumber: input.phone,
-      },
-    );
+    // Создание клиента — только /bonuses/putCustomer с полным набором полей.
+    // /api/create /api/update crm.customer не используем: они обнуляют
+    // непереданные поля (на проде так стёрся телефон живого клиента).
+    // createTerminalSalePlaceDocId — колонка «Место создания» в CRM
+    // (настройка qr_sale_place, напр. sale_place-250523065903399y).
+    const payload: Record<string, unknown> = {
+      customerGuid: `app-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      version: 0,
+      // Имя по умолчанию — «Гость»; своё имя из приложения передаём
+      // только если оно валидное (защита от мусорных строк)
+      firstName: isValidQrName(input.name) ? input.name.trim() : "Гость",
+      contactMethods: defaultContactMethods(input.phone),
+    };
+    if (this.configuredSalePlace) {
+      payload.createTerminalSalePlaceDocId = this.configuredSalePlace;
+    }
+    const created = await this.client.bonuses("putCustomer", payload);
     const items = firstArrayDeep(created);
     const obj = items[0] ?? (created as Json);
-    const guid = obj && typeof obj === "object" ? extractGuid(obj as Json) : undefined;
-    if (!guid) return null;
-    return { guid, firstName: input.name, phone: input.phone };
+    const guid =
+      (obj && typeof obj === "object" ? extractGuid(obj as Json) : undefined) ??
+      (payload.customerGuid as string);
+    return {
+      guid,
+      firstName: isValidQrName(input.name) ? input.name.trim() : "Гость",
+      phone: input.phone,
+    };
+  }
+
+  async updateCustomerName(
+    phone: string,
+    name: string,
+  ): Promise<boolean> {
+    const found = await this.findCustomerByPhone(phone).catch(() => null);
+    if (!found) return false; // клиент ещё не привязан к CRM — нечего обновлять
+    // putCustomer работает как частичное обновление по customerGuid, но
+    // телефон/контакты передаём всегда — на всякий случай против затирания.
+    const full = await this.getCustomerByGuid(found.guid).catch(() => null);
+    const version =
+      (full ? pickNumberDeep(full, ["version"]) : null) ??
+      (full && typeof full["version"] === "number"
+        ? (full["version"] as number)
+        : 0) ??
+      0;
+    const contactMethods = full
+      ? findContactMethods(full)
+      : [];
+    await this.client.bonuses("putCustomer", {
+      customerGuid: found.guid,
+      version,
+      firstName: name,
+      contactMethods: contactMethods.length
+        ? contactMethods
+        : defaultContactMethods(phone),
+    });
+    return true;
   }
 
   async getBonusBalanceByPhone(phone: string): Promise<RestoBonusBalance | null> {
@@ -275,14 +366,24 @@ export async function getRestoProvider(): Promise<RestoProvider | null> {
   if (s.qr_enabled !== "1" || !s.qr_layer || !s.qr_login || !s.qr_password) {
     return null;
   }
-  const key = [s.qr_layer, s.qr_login, s.qr_password, s.qr_account_guid].join("|");
+  const key = [
+    s.qr_layer,
+    s.qr_login,
+    s.qr_password,
+    s.qr_account_guid,
+    s.qr_sale_place,
+  ].join("|");
   if (cache?.key === key) return cache.provider;
   const client = new BackOfficeClient(
     `https://${s.qr_layer}.quickresto.ru/platform/online`,
     s.qr_login,
     s.qr_password,
   );
-  const provider = new BackOfficeProvider(client, s.qr_account_guid ?? "");
+  const provider = new BackOfficeProvider(
+    client,
+    s.qr_account_guid ?? "",
+    s.qr_sale_place ?? "",
+  );
   cache = { key, provider };
   return provider;
 }
