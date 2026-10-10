@@ -105,6 +105,26 @@ function defaultContactMethods(phone: string): Json[] {
   return [{ type: "phone", entry: "manual", key: phone }];
 }
 
+/** customerGuid для putCustomer в формате Quick Resto:
+ *  customer_put-yyMMddHHmmssSSS (15 цифр) + 1 случайный символ [0-9A-Z].
+ *  В свободном формате (app-…) putCustomer падает с HTTP 500 на их стороне. */
+function newCustomerGuid(): string {
+  const d = new Date();
+  const p = (n: number, w = 2) => String(n).padStart(w, "0");
+  const stamp =
+    p(d.getFullYear() % 100) +
+    p(d.getMonth() + 1) +
+    p(d.getDate()) +
+    p(d.getHours()) +
+    p(d.getMinutes()) +
+    p(d.getSeconds()) +
+    p(d.getMilliseconds(), 3);
+  const rnd = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[
+    Math.floor(Math.random() * 36)
+  ];
+  return `customer_put-${stamp}${rnd}`;
+}
+
 /* ------------------------------------------------------------------ */
 /* BackOfficeProvider — реализация на бесплатном Back Office API       */
 /* ------------------------------------------------------------------ */
@@ -198,7 +218,7 @@ export class BackOfficeProvider implements RestoProvider {
     // createTerminalSalePlaceDocId — колонка «Место создания» в CRM
     // (настройка qr_sale_place, напр. sale_place-250523065903399y).
     const payload: Record<string, unknown> = {
-      customerGuid: `app-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      customerGuid: newCustomerGuid(),
       version: 0,
       // Имя по умолчанию — «Гость»; своё имя из приложения передаём
       // только если оно валидное (защита от мусорных строк)
