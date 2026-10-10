@@ -100,9 +100,12 @@ function findContactMethods(v: unknown, depth = 0): Json[] {
   return [];
 }
 
-/** Способы связи по умолчанию — телефон клиента */
+/** Способы связи по умолчанию — телефон клиента.
+ *  Формат поля contactMethods: { type: "phoneNumber", value } —
+ *  НЕ token-схема { type, entry, key } (она только для customerToken
+ *  в balance/operationHistory). */
 function defaultContactMethods(phone: string): Json[] {
-  return [{ type: "phone", entry: "manual", key: phone }];
+  return [{ type: "phoneNumber", value: phone }];
 }
 
 /** customerGuid для putCustomer в формате Quick Resto:
