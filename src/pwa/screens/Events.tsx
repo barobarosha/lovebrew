@@ -602,7 +602,6 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                       <p className="mt-1 text-[11px] leading-snug" style={{ color: BRAND.sageDeep }}>
                         * Включена финальная уборка и вынос мусора —{" "}
                         {cleaning.toLocaleString("ru-RU")} ₽ за весь праздник.
-                        Вы просто забираете подарки, порядок — на нас.
                         {decor &&
                           ` Декораторский час — ${decorPrice.toLocaleString("ru-RU")} ₽.`}
                         {freeHours > 0 &&

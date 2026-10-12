@@ -416,8 +416,7 @@ function BookingForm({
             {freeHours > 0 && ` (+ ${freeHours} ч в подарок по акции «3+1»)`}
             {decor && ` · Декораторский час — ${decorPrice.toLocaleString("ru-RU")} ₽`}
             {" · "}* Финальная уборка и вынос мусора —{" "}
-            {cleaning.toLocaleString("ru-RU")} ₽ за весь праздник. Вы просто
-            забираете подарки, порядок — на нас.
+            {cleaning.toLocaleString("ru-RU")} ₽ за весь праздник.
           </span>
         </div>
 
