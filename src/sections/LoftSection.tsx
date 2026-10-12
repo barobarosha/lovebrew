@@ -114,6 +114,9 @@ export function LoftSection() {
                 <p className="mt-1 text-sm opacity-80">
                   слоты: дневной до 15:00 · вечерний с 16:00 · от 2 часов
                 </p>
+                <p className="mt-2 font-display text-sm font-semibold">
+                  +{s.price_cleaning ?? "1500"} ₽ уборка и вынос мусора*
+                </p>
               </div>
               <div
                 className="rounded-3xl p-6"
@@ -137,16 +140,25 @@ export function LoftSection() {
               </div>
             </div>
 
+            <p className="mt-3 max-w-md text-xs leading-relaxed opacity-60">
+              *Оплата уборки является обязательным условием. Мы заботимся о
+              чистоте и готовим лофт для встречи с вами и для следующих гостей.
+            </p>
+
             <ul className="mt-6 space-y-3 text-sm leading-relaxed">
-              <li className="flex gap-3">
-                <span
-                  className="mt-1 h-2 w-2 shrink-0 rounded-full"
-                  style={{ background: BRAND.sageDeep }}
-                />
-                <span>
-                  <b>Акция «3+1»</b> — {s.offer_3plus1 ??
-                    "при бронировании от 3-х часов 4-й час в подарок!"}
-                </span>
+              <li>
+                <div
+                  className="rounded-2xl px-4 py-3"
+                  style={{ background: BRAND.pink }}
+                >
+                  <p className="font-display text-sm font-bold uppercase tracking-wide">
+                    🎁 Акция «3+1»
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed">
+                    {s.offer_3plus1 ??
+                      "при бронировании от 3-х часов 4-й час в подарок!"}
+                  </p>
+                </div>
               </li>
               <li className="flex gap-3">
                 <span
@@ -154,9 +166,7 @@ export function LoftSection() {
                   style={{ background: BRAND.sageDeep }}
                 />
                 <span>
-                  Финальная уборка и вынос мусора —{" "}
-                  <b>{s.price_cleaning ?? "1500"} ₽</b> за весь праздник. Вы
-                  просто забираете подарки, порядок — на нас.
+                  <b>{s.price_cleaning ?? "1500"} ₽</b> — декораторский час
                 </span>
               </li>
               <li className="flex gap-3">
