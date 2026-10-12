@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   // Лофт сдаётся только в выходные/праздники — единая цена
   price_loft_weekend: "3500",
   price_cleaning: "1500",
+  price_decor_hour: "1500", // декораторский час — опция к аренде лофта
   price_kids_hour: "300",
   price_kids_unlimited: "1000",
   price_coworking_hour: "300",
@@ -57,6 +58,7 @@ export const PUBLIC_SETTING_KEYS = [
   "telegram_manager",
   "price_loft_weekend",
   "price_cleaning",
+  "price_decor_hour",
   "price_kids_hour",
   "price_kids_unlimited",
   "price_coworking_hour",

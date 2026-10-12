@@ -24,6 +24,7 @@ const GROUPS: { title: string; keys: { key: string; label: string; hint?: string
     keys: [
       { key: "price_loft_weekend", label: "Лофт (₽/час)", hint: "Аренда только в выходные и праздничные дни" },
       { key: "price_cleaning", label: "Финальная уборка (₽)" },
+      { key: "price_decor_hour", label: "Декораторский час (₽)", hint: "Опция к аренде лофта — прибавляется к итогу, если клиент включил" },
       { key: "price_kids_hour", label: "Детская, 1 час (₽)" },
       { key: "price_kids_unlimited", label: "Детская, безлимит до 15:00 (₽)" },
       { key: "price_coworking_hour", label: "Коворкинг (₽/час)" },

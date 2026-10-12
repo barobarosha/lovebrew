@@ -143,6 +143,7 @@ function BookingForm({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [comment, setComment] = useState("");
+  const [decor, setDecor] = useState(false);
   const [goChat, setGoChat] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -153,11 +154,12 @@ function BookingForm({
   // Аренда только в выходные/праздники — всегда «выходной» тариф
   const loftPrice = parseInt(s.price_loft_weekend ?? "3500", 10);
   const cleaning = parseInt(s.price_cleaning ?? "1500", 10);
+  const decorPrice = parseInt(s.price_decor_hour ?? "1500", 10);
 
   // Акция «3+1»: каждый 4-й час аренды лофта — в подарок
   const freeHours = Math.floor(hours / 4);
   const paidHours = hours - freeHours;
-  const estimate = loftPrice * paidHours + cleaning;
+  const estimate = loftPrice * paidHours + cleaning + (decor ? decorPrice : 0);
 
   const onHoursChange = (e: ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/[^\d]/g, "").slice(0, 2);
@@ -207,7 +209,13 @@ function BookingForm({
         startTime,
         hours: parsedHours,
         guests: guests || undefined,
-        comment: comment.trim() || undefined,
+        comment:
+          [
+            comment.trim(),
+            decor ? `Декораторский час (+${decorPrice.toLocaleString("ru-RU")} ₽)` : "",
+          ]
+            .filter(Boolean)
+            .join(". ") || undefined,
       },
       {
         onSuccess: (r) => {
@@ -377,6 +385,24 @@ function BookingForm({
           </div>
         )}
 
+        <label
+          className="flex cursor-pointer items-center gap-3 rounded-2xl px-4 py-3"
+          style={{ background: decor ? BRAND.pink : BRAND.white }}
+        >
+          <input
+            type="checkbox"
+            checked={decor}
+            onChange={(e) => setDecor(e.target.checked)}
+            className="h-4 w-4 shrink-0 accent-[#2f3b2c]"
+          />
+          <span className="flex flex-1 items-baseline justify-between gap-2 text-sm">
+            <span className="font-semibold">Декораторский час</span>
+            <span className="font-display font-bold">
+              +{decorPrice.toLocaleString("ru-RU")} ₽
+            </span>
+          </span>
+        </label>
+
         <div
           className="rounded-2xl px-4 py-3 text-sm"
           style={{ background: BRAND.cream }}
@@ -388,6 +414,7 @@ function BookingForm({
           <span className="mt-1 block text-xs opacity-60">
             {loftPrice.toLocaleString("ru-RU")} ₽/ч × {paidHours} ч
             {freeHours > 0 && ` (+ ${freeHours} ч в подарок по акции «3+1»)`}
+            {decor && ` · Декораторский час — ${decorPrice.toLocaleString("ru-RU")} ₽`}
             {" · "}* Финальная уборка и вынос мусора —{" "}
             {cleaning.toLocaleString("ru-RU")} ₽ за весь праздник. Вы просто
             забираете подарки, порядок — на нас.

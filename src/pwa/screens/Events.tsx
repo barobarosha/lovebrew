@@ -170,6 +170,7 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
   const [hoursText, setHoursText] = useState(String(MIN_LOFT_HOURS));
   const [guests, setGuests] = useState(1);
   const [comment, setComment] = useState("");
+  const [decor, setDecor] = useState(false);
   const [goChat, setGoChat] = useState(true);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
@@ -199,6 +200,7 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
   // Аренда только в выходные/праздники — всегда «выходной» тариф
   const loftHourPrice = Number(s.price_loft_weekend || 3500);
   const cleaning = Number(s.price_cleaning || 1500);
+  const decorPrice = Number(s.price_decor_hour || 1500);
   const coworkHour = Number(s.price_coworking_hour || 300);
   const coworkDay = Number(s.price_coworking_day || 900);
   const kidsPrice = Number(s.price_kids_hour || 300);
@@ -207,7 +209,7 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
   // Акция «3+1»: каждый 4-й час аренды лофта — в подарок
   const freeHours = Math.floor(hours / 4);
   const paidHours = hours - freeHours;
-  const estimate = loftHourPrice * paidHours + cleaning;
+  const estimate = loftHourPrice * paidHours + cleaning + (decor ? decorPrice : 0);
 
   const onHoursChange = (e: ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/[^\d]/g, "").slice(0, 2);
@@ -247,7 +249,13 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
       slot: slot as "day" | "evening",
       hours: parsedHours,
       guests,
-      comment: comment || undefined,
+      comment:
+        [
+          comment.trim(),
+          decor ? `Декораторский час (+${decorPrice.toLocaleString("ru-RU")} ₽)` : "",
+        ]
+          .filter(Boolean)
+          .join(". ") || undefined,
     });
   };
 
@@ -551,6 +559,24 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                       style={{ background: BRAND.white }}
                     />
 
+                    <label
+                      className="flex cursor-pointer items-center gap-3 rounded-2xl p-3"
+                      style={{ background: decor ? BRAND.pink : BRAND.white }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={decor}
+                        onChange={(e) => setDecor(e.target.checked)}
+                        className="h-4 w-4 shrink-0 accent-[#2f3b2c]"
+                      />
+                      <span className="flex flex-1 items-baseline justify-between gap-2 text-sm">
+                        <span className="font-semibold">Декораторский час</span>
+                        <span className="font-display font-bold">
+                          +{decorPrice.toLocaleString("ru-RU")} ₽
+                        </span>
+                      </span>
+                    </label>
+
                     {freeHours > 0 && (
                       <p
                         className="flex items-start gap-2 rounded-2xl p-3 text-xs font-semibold leading-snug"
@@ -577,6 +603,8 @@ export function BookingSheet({ onClose }: { onClose: () => void }) {
                         * Включена финальная уборка и вынос мусора —{" "}
                         {cleaning.toLocaleString("ru-RU")} ₽ за весь праздник.
                         Вы просто забираете подарки, порядок — на нас.
+                        {decor &&
+                          ` Декораторский час — ${decorPrice.toLocaleString("ru-RU")} ₽.`}
                         {freeHours > 0 &&
                           ` Акция «3+1» применена: оплачиваете ${paidHours} из ${hours} ч.`}
                       </p>
