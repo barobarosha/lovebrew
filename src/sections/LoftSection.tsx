@@ -165,9 +165,11 @@ export function LoftSection() {
                   className="mt-1 h-2 w-2 shrink-0 rounded-full"
                   style={{ background: BRAND.sageDeep }}
                 />
-                <span>
-                  <b>{s.price_cleaning ?? "1500"} ₽</b> — декораторский час
-                </span>
+               <span>
+                <b>{s.price_cleaning ?? "1500"} ₽</b> — декораторский час (при необходимости)
+                — время до начала мероприятия для монтажа фотозоны, декора и сервировки
+                стола.
+              </span>
               </li>
               <li className="flex gap-3">
                 <span
