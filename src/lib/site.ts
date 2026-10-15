@@ -156,13 +156,29 @@ export function fileToImageDataUrl(file: File, maxPx = 1200): Promise<string> {
     reader.onload = () => {
       const img = new Image();
       img.onload = () => {
-        // Ресайз по длинной стороне (и ширина, и высота ≤ maxPx)
-        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.85));
+        try {
+          // Ресайз по длинной стороне, с деградацией: если сжатие всё ещё
+          // тяжёлое (детализированное фото) — снижаем качество, затем размер,
+          // пока data URL не уместится в ~700 КБ (лимит сервера — 1 МБ).
+          const TARGET = 700 * 1024;
+          let px = maxPx;
+          let q = 0.85;
+          let dataUrl = "";
+          for (let attempt = 0; attempt < 4; attempt++) {
+            const scale = Math.min(1, px / Math.max(img.width, img.height));
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+            dataUrl = canvas.toDataURL("image/jpeg", q);
+            if (dataUrl.length <= TARGET) break;
+            if (q > 0.6) q = 0.6;
+            else px = Math.round(px * 0.7);
+          }
+          resolve(dataUrl);
+        } catch {
+          reject(new Error("Не удалось обработать фото — попробуйте другое"));
+        }
       };
       img.onerror = () => reject(new Error("Фото: нужен JPG/PNG/WEBP до 10 МБ"));
       img.src = String(reader.result);

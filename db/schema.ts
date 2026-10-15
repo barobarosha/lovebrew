@@ -4,6 +4,7 @@ import {
   serial,
   varchar,
   text,
+  mediumtext,
   int,
   boolean,
   timestamp,
@@ -55,7 +56,7 @@ export const events = mysqlTable("events", {
   date: varchar("date", { length: 10 }).notNull(),
   time: varchar("time", { length: 5 }),
   price: varchar("price", { length: 60 }),
-  imageUrl: text("image_url"),
+  imageUrl: mediumtext("image_url"),
   isPublished: boolean("is_published").notNull().default(true),
   // Открыта ли онлайн-запись на мероприятие (кнопка «Записаться» на сайте/в приложении)
   registrationOpen: boolean("registration_open").notNull().default(false),
@@ -83,7 +84,7 @@ export const menuItems = mysqlTable("menu_items", {
   description: varchar("description", { length: 300 }),
   volume: varchar("volume", { length: 30 }), // e.g. "350 мл"
   price: int("price").notNull(), // rubles
-  imageUrl: text("image_url"), // URL или data URI (картинка из админки)
+  imageUrl: mediumtext("image_url"), // URL или data URI (картинка из админки)
   sortOrder: int("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
 });

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { createRouter, publicQuery } from "../middleware";
-import { getDb } from "../queries/connection";
+import { getDb, friendlyDbError } from "../queries/connection";
 import { bookings, customers, eventRegistrations, events, loftSlots, menuItems } from "@db/schema";
 import {
   assertAdmin,
@@ -492,13 +492,23 @@ export const adminRouter = createRouter({
         isActive: input.isActive,
       };
       if (input.id) {
-        await db.update(menuItems).set(data).where(eq(menuItems.id, input.id));
+        try {
+          await db.update(menuItems).set(data).where(eq(menuItems.id, input.id));
+        } catch (e) {
+          friendlyDbError(e);
+        }
         await ensureCategoriesInOrder([input.category]);
         return { id: input.id };
       }
-      const [result] = await db.insert(menuItems).values(data);
+      let insertId = 0;
+      try {
+        const [result] = await db.insert(menuItems).values(data);
+        insertId = Number((result as { insertId?: number }).insertId ?? 0);
+      } catch (e) {
+        friendlyDbError(e);
+      }
       await ensureCategoriesInOrder([input.category]);
-      return { id: Number((result as { insertId?: number }).insertId ?? 0) };
+      return { id: insertId };
     }),
 
   deleteMenuItem: publicQuery
@@ -531,20 +541,24 @@ export const adminRouter = createRouter({
     .mutation(async ({ input }) => {
       await assertAdmin(input.token);
       const db = getDb();
-      if (input.mode === "replace") {
-        await db.delete(menuItems);
+      try {
+        if (input.mode === "replace") {
+          await db.delete(menuItems);
+        }
+        await db.insert(menuItems).values(
+          input.items.map((it, i) => ({
+            category: it.category,
+            name: it.name,
+            description: it.description ?? null,
+            volume: it.volume ?? null,
+            price: it.price,
+            sortOrder: i,
+            isActive: true,
+          })),
+        );
+      } catch (e) {
+        friendlyDbError(e);
       }
-      await db.insert(menuItems).values(
-        input.items.map((it, i) => ({
-          category: it.category,
-          name: it.name,
-          description: it.description ?? null,
-          volume: it.volume ?? null,
-          price: it.price,
-          sortOrder: i,
-          isActive: true,
-        })),
-      );
       // Порядок категорий при полной замене меню = порядок в файле импорта
       if (input.mode === "replace") {
         await setMenuCategoryOrder([...new Set(input.items.map((it) => it.category))]);
