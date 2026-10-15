@@ -108,6 +108,29 @@ function defaultContactMethods(phone: string): Json[] {
   return [{ type: "phoneNumber", value: phone }];
 }
 
+/**
+ * Номер, заведённый на кассе вручную без кода страны (9XXXXXXXXX,
+ * 10 цифр) → полный формат 79XXXXXXXXX. null — номер уже нормальный
+ * или не похож на российский мобильный (трогать не надо).
+ */
+function normalizeLegacyPhone(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10 && digits.startsWith("9")) return `7${digits}`;
+  return null;
+}
+
+/** Телефон из массива contactMethods (первая запись phoneNumber). */
+function phoneFromContactMethods(methods: Json[]): string | undefined {
+  for (const m of methods) {
+    if (m && typeof m === "object" && !Array.isArray(m)) {
+      const v = (m as Json)["value"];
+      if (typeof v === "string" && v.replace(/\D/g, "").length >= 10) return v;
+    }
+  }
+  return undefined;
+}
+
 /** customerGuid для putCustomer в формате Quick Resto:
  *  customer_put-yyMMddHHmmssSSS (15 цифр) + 1 случайный символ [0-9A-Z].
  *  В свободном формате (app-…) putCustomer падает с HTTP 500 на их стороне. */
@@ -199,13 +222,61 @@ export class BackOfficeProvider implements RestoProvider {
     const items = firstArrayDeep(res);
     const found = items.find((it) => extractGuid(it));
     if (!found) return null;
+    const guid = extractGuid(found)!;
     // Имя из QR берём только валидное (не мусор из одного эмодзи и т.п.)
     const rawName = pickString(found, "firstName", "name");
+    let crmPhone =
+      pickString(found, "phone", "phoneNumber") ??
+      phoneFromContactMethods(findContactMethods(found));
+    // Гость заведён на кассе вручную с номером без кода страны
+    // (9XXXXXXXXX, 10 цифр)? Планшет ищет по полному номеру и такого
+    // клиента не находит — нормализуем карточку в CRM до 79XXXXXXXXX.
+    const normalized = normalizeLegacyPhone(crmPhone);
+    if (normalized) {
+      await this.normalizeCustomerPhone(guid, normalized).catch((e) =>
+        console.error(
+          "[quickresto] не удалось нормализовать телефон клиента:",
+          (e as Error).message,
+        ),
+      );
+      crmPhone = normalized;
+    }
     return {
-      guid: extractGuid(found)!,
+      guid,
       firstName: isValidQrName(rawName) ? rawName.trim() : undefined,
-      phone: pickString(found, "phone", "phoneNumber") ?? phone,
+      phone: crmPhone ?? phone,
     };
+  }
+
+  /**
+   * Нормализация телефона в карточке CRM (10 цифр → 79XXXXXXXXX).
+   * Только putCustomer с полным набором полей (customerGuid, version,
+   * firstName, contactMethods) — /api/update обнуляет непереданные поля.
+   */
+  private async normalizeCustomerPhone(
+    guid: string,
+    normalizedPhone: string,
+  ): Promise<void> {
+    const full = await this.getCustomerByGuid(guid);
+    if (!full) return;
+    const version = pickNumberDeep(full, ["version"]) ?? 0;
+    const existing = findContactMethods(full);
+    const contactMethods = existing.length
+      ? existing.map((cm) => {
+          if (!cm || typeof cm !== "object" || Array.isArray(cm)) return cm;
+          const obj = cm as Json;
+          const value = typeof obj["value"] === "string" ? obj["value"] : "";
+          const fixed = normalizeLegacyPhone(value);
+          return fixed ? { ...obj, value: fixed } : cm;
+        })
+      : defaultContactMethods(normalizedPhone);
+    const rawName = pickString(full, "firstName", "name");
+    await this.client.bonuses("putCustomer", {
+      customerGuid: guid,
+      version,
+      firstName: isValidQrName(rawName) ? rawName.trim() : "Гость",
+      contactMethods,
+    });
   }
 
   async createCustomer(input: {

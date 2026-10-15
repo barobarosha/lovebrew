@@ -80,7 +80,7 @@ export default function HomeScreen() {
               title="Нажмите, чтобы увеличить код для кассы"
             >
               <QRCode
-                value={`lavbrew:${customer.phone}`}
+                value={customer.phone}
                 size={96}
                 fgColor={BRAND.ink}
                 bgColor={BRAND.cream}
@@ -221,7 +221,7 @@ export default function HomeScreen() {
               style={{ background: BRAND.cream }}
             >
               <QRCode
-                value={`lavbrew:${customer.phone}`}
+                value={customer.phone}
                 size={240}
                 fgColor={BRAND.ink}
                 bgColor={BRAND.cream}
