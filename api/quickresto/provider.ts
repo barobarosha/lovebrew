@@ -396,13 +396,17 @@ export class BackOfficeProvider implements RestoProvider {
       });
       return firstArrayDeep(res)
         .map((op) => {
-          const amount =
+          const rawAmount =
             pickNumberDeep(op, ["amount", "sum", "value", "bonuses"]) ?? 0;
           const rawType = pickString(op, "type", "operationType", "kind");
+          const type = normalizeOperationType(rawType, rawAmount);
+          // QR может отдавать сумму списания положительной — знак выставляем
+          // по типу: начисление всегда с плюсом, списание с минусом.
+          const amount = type === "debit" ? -Math.abs(rawAmount) : Math.abs(rawAmount);
           return {
             date:
               pickString(op, "date", "operationDate", "created", "createdAt") ?? "",
-            type: normalizeOperationType(rawType, amount),
+            type,
             amount,
             comment: pickString(op, "comment", "description", "orderNumber"),
           };
