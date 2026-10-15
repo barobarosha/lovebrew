@@ -41,13 +41,20 @@ interface AeroData {
   id: number;
   number?: string;
   status?: number;
+  // В ответе /send приходит тип доставки: "SIM_PUSH" или "SMS" (фолбэк)
+  authType?: string;
 }
 
 async function post(
   c: AeroCreds,
   path: string,
   body: Record<string, unknown>,
-): Promise<{ ok: boolean; httpStatus: number; data: AeroData | null }> {
+): Promise<{
+  ok: boolean;
+  httpStatus: number;
+  data: AeroData | null;
+  raw: unknown;
+}> {
   try {
     const res = await fetch(`${GATE}${path}`, {
       method: "POST",
@@ -67,21 +74,23 @@ async function post(
       ok: res.ok && json?.success === true,
       httpStatus: res.status,
       data: json?.data ?? null,
+      raw: json,
     };
   } catch {
-    return { ok: false, httpStatus: 0, data: null };
+    return { ok: false, httpStatus: 0, data: null, raw: null };
   }
 }
 
 /**
  * Запуск мобильной авторизации: SIM-PUSH, при недоступности — SMS OTP.
- * Возвращает id сессии (data.id) или null, если ключи не заданы либо API
+ * Возвращает id сессии (data.id) и тип доставки (authType из ответа,
+ * по умолчанию считаем SIM_PUSH) или null, если ключи не заданы либо API
  * недоступен — тогда вызывающий код уходит в пилотный режим.
  */
 export async function aeroSend(
   phone: string,
   callbackUrl: string,
-): Promise<number | null> {
+): Promise<{ id: number; authType: string } | null> {
   const c = await creds();
   if (!c) return null;
   const r = await post(c, "/send", {
@@ -89,7 +98,8 @@ export async function aeroSend(
     sign: c.sign,
     callbackUrl,
   });
-  return r.ok && r.data?.id ? r.data.id : null;
+  if (!r.ok || !r.data?.id) return null;
+  return { id: r.data.id, authType: r.data.authType ?? "SIM_PUSH" };
 }
 
 /** Текущий статус сессии (polling вместо webhook). null — ключи/сеть недоступны. */
@@ -102,8 +112,10 @@ export async function aeroStatus(id: number): Promise<number | null> {
 
 /**
  * Проверка OTP-кода из SMS.
- * "ok" — код верный (status=1), "wrong" — неверный код (HTTP 400),
- * "error" — сбой API или сессия не найдена (HTTP 404 и пр.).
+ * "ok" — код верный: API verify отвечает success:true (статус сессии
+ * обновляется отдельно и в этом ответе может ещё не быть SUCCESS).
+ * "wrong" — неверный код (HTTP 400). "error" — сбой API или сессия
+ * не найдена (HTTP 404 и пр.) — тело ответа пишем в лог.
  */
 export async function aeroVerify(
   id: number,
@@ -112,7 +124,8 @@ export async function aeroVerify(
   const c = await creds();
   if (!c) return "error";
   const r = await post(c, "/verify", { id, sign: c.sign, code });
-  if (r.ok && r.data?.status === AERO_STATUS.SUCCESS) return "ok";
+  if (r.ok) return "ok";
   if (r.httpStatus === 400) return "wrong";
+  console.warn("[smsAero] verify failed:", r.httpStatus, JSON.stringify(r.raw));
   return "error";
 }

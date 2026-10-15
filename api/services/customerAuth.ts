@@ -30,9 +30,9 @@ const SESSION_TTL_MS = 60 * 24 * 60 * 60 * 1000; // 60 дней
 /**
  * Запрос кода. Если подключена мобильная авторизация SMS Aero
  * (sms_aero_email/sms_aero_api_key в настройках) — абоненту приходит SIM-PUSH
- * или SMS с кодом, в ответе флаг sentBySms=true. Иначе (или при сбое API) —
- * пилотный режим: код возвращается в ответе (debugCode) и показывается
- * в интерфейсе, как и раньше.
+ * или SMS с кодом, в ответе флаг sentBySms=true и authType ("SIM_PUSH"/"SMS").
+ * Иначе (или при сбое API) — пилотный режим: код возвращается в ответе
+ * (debugCode) и показывается в интерфейсе, как и раньше.
  */
 export async function requestOtp(rawPhone: string, callbackUrl: string) {
   const phone = normalizePhone(rawPhone);
@@ -48,14 +48,16 @@ export async function requestOtp(rawPhone: string, callbackUrl: string) {
   // Мобильная авторизация SMS Aero: сессия с их стороны, id храним в поле
   // code с префиксом "aero:" (схему БД не меняем). null — ключи не заданы
   // или API недоступен → фолбэк на пилотный режим.
-  const aeroId = await aeroSend(phone, callbackUrl);
-  if (aeroId) {
+  const aero = await aeroSend(phone, callbackUrl);
+  if (aero) {
     await db.insert(otpCodes).values({
       phone,
-      code: `aero:${aeroId}`,
+      code: `aero:${aero.id}`,
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
     });
-    return { phone, sentBySms: true, debugCode: null };
+    // authType: "SIM_PUSH" — абоненту ушёл пуш «Подтвердить вход»,
+    // "SMS" — пуш недоступен, пришла обычная SMS с кодом.
+    return { phone, sentBySms: true, authType: aero.authType, debugCode: null };
   }
 
   const code = String(randomInt(1000, 10000));
@@ -69,7 +71,7 @@ export async function requestOtp(rawPhone: string, callbackUrl: string) {
   // выключить после подключения SMS — иначе вход по чужому номеру возможен).
   const s = await getAllSettings();
   const debug = s.otp_debug_mode !== "0";
-  return { phone, sentBySms: false, debugCode: debug ? code : null };
+  return { phone, sentBySms: false, authType: null, debugCode: debug ? code : null };
 }
 
 export async function verifyOtp(rawPhone: string, code: string, name?: string) {

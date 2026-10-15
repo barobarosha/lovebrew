@@ -20,11 +20,14 @@ export default function LoginScreen({
   const [token, setToken] = useState("");
   const [debugCode, setDebugCode] = useState("");
   const [sentBySms, setSentBySms] = useState(false);
+  // "SIM_PUSH" — абоненту ушёл пуш-подтверждение, "SMS" — обычная SMS с кодом
+  const [authType, setAuthType] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const requestOtp = trpc.pwa.requestOtp.useMutation({
     onSuccess: (r) => {
       setSentBySms(r.sentBySms);
+      setAuthType(r.authType ?? null);
       setDebugCode(r.debugCode ?? "");
       setStep("code");
       setError("");
@@ -68,7 +71,9 @@ export default function LoginScreen({
     code: {
       title: "Код из SMS",
       hint: sentBySms
-        ? "Подтвердите вход на телефоне (SIM-PUSH) или введите код из SMS"
+        ? authType === "SMS"
+          ? "Отправили SMS с кодом на ваш номер — введите его ниже"
+          : "Подтвердите вход на телефоне (SIM-PUSH) или введите код из SMS"
         : "Отправили 4 цифры на ваш номер",
     },
     name: {
@@ -153,7 +158,7 @@ export default function LoginScreen({
           >
             {verifyOtp.isPending ? "Входим…" : "Войти"}
           </button>
-          {sentBySms && (
+          {sentBySms && authType !== "SMS" && (
             <button
               disabled={verifyOtp.isPending}
               onClick={() => verifyOtp.mutate({ phone, code: "0000" })}
@@ -169,6 +174,7 @@ export default function LoginScreen({
               setCode("");
               setDebugCode("");
               setSentBySms(false);
+              setAuthType(null);
             }}
             className="w-full py-2 text-sm font-medium"
             style={{ color: BRAND.sageDeep }}
