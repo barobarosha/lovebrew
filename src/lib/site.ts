@@ -143,7 +143,8 @@ export function formatPhoneInput(raw: string): string {
  * Итог ~300–500 КБ вместо исходных 5–10 МБ.
  * MIME у файла может быть кривым или пустым (HEIC так часто приходит) —
  * поэтому тип не проверяем: картинка ли это, определяет само декодирование
- * (img.onload/onerror).
+ * (img.onload/onerror). Файл читаем через FileReader в data:-URL —
+ * он разрешён CSP (blob:-URL под CSP img-src попадать не должен).
  */
 export function fileToImageDataUrl(file: File, maxPx = 1200): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -151,23 +152,23 @@ export function fileToImageDataUrl(file: File, maxPx = 1200): Promise<string> {
       reject(new Error("Фото: нужен JPG/PNG/WEBP до 10 МБ"));
       return;
     }
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      // Ресайз по длинной стороне (и ширина, и высота ≤ maxPx)
-      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        // Ресайз по длинной стороне (и ширина, и высота ≤ maxPx)
+        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.onerror = () => reject(new Error("Фото: нужен JPG/PNG/WEBP до 10 МБ"));
+      img.src = String(reader.result);
     };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Фото: нужен JPG/PNG/WEBP до 10 МБ"));
-    };
-    img.src = url;
+    reader.onerror = () => reject(new Error("Фото: нужен JPG/PNG/WEBP до 10 МБ"));
+    reader.readAsDataURL(file);
   });
 }
 

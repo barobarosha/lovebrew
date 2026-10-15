@@ -29,7 +29,8 @@ if (env.isProduction) {
         // inline-стили нужны React (style-пропсы), шрифты — Google Fonts
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data: https:",
+        // blob: — превью загружаемых фото (createObjectURL); data: — сжатые фото меню
+        "img-src 'self' data: https: blob:",
         "connect-src 'self'",
         "frame-ancestors 'none'",
         "base-uri 'self'",
