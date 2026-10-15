@@ -136,26 +136,37 @@ export function formatPhoneInput(raw: string): string {
 }
 
 /** Сжимает картинку на клиенте до data URI (JPEG ≤ maxPx по ширине) */
-export function fileToImageDataUrl(file: File, maxPx = 800): Promise<string> {
+/**
+ * Фото из input[type=file] → data URL: читаем через canvas
+ * (любой image/*, включая HEIC с iPhone — браузер декодирует сам),
+ * ресайз до maxPx по длинной стороне, JPEG quality 0.85.
+ * Итог ~300–500 КБ вместо исходных 5–10 МБ.
+ */
+export function fileToImageDataUrl(file: File, maxPx = 1200): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith("image/")) {
-      reject(new Error("Нужен файл изображения"));
+      reject(new Error("Фото: нужен JPG/PNG/WEBP до 10 МБ"));
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      reject(new Error("Фото: нужен JPG/PNG/WEBP до 10 МБ"));
       return;
     }
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const scale = Math.min(1, maxPx / img.width);
+      // Ресайз по длинной стороне (и ширина, и высота ≤ maxPx)
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(img.width * scale);
       canvas.height = Math.round(img.height * scale);
       canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", 0.82));
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error("Не удалось прочитать картинку"));
+      reject(new Error("Фото: нужен JPG/PNG/WEBP до 10 МБ"));
     };
     img.src = url;
   });

@@ -22,10 +22,10 @@ import { getMonthCalendar, slotsForDate } from "../services/availability";
 import { clientIp, rateLimitOrThrow } from "../lib/rateLimit";
 import { formatPhone, normalizePhone } from "../services/customerAuth";
 
-// URL картинки или data URI (base64 до ~300 КБ после сжатия на клиенте)
+// URL картинки или data URI (после сжатия на клиенте: JPEG ≤1200px, ~300–500 КБ)
 const imageUrlInput = z
   .string()
-  .max(420_000, "Картинка слишком большая — выберите файл поменьше")
+  .max(1_000_000, "Картинка слишком большая даже после сжатия — выберите другое фото")
   .refine(
     (v) => /^https?:\/\//.test(v) || /^data:image\/(jpeg|jpg|png|webp);base64,/.test(v),
     "Нужна ссылка на картинку или файл изображения",

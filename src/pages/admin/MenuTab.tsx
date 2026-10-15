@@ -110,6 +110,7 @@ export function MenuTab({ token }: { token: string }) {
   const [catsOrder, setCatsOrder] = useState<string[]>([]);
   const [newCatName, setNewCatName] = useState("");
   const [catsMsg, setCatsMsg] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   const save = trpc.admin.saveMenuItem.useMutation({
     onSuccess: () => {
@@ -231,7 +232,10 @@ export function MenuTab({ token }: { token: string }) {
           <Button
             className="rounded-full"
             style={{ background: BRAND.sageDeep, color: BRAND.white }}
-            onClick={() => setForm(EMPTY)}
+            onClick={() => {
+              setPhotoError(null);
+              setForm(EMPTY);
+            }}
           >
             <Plus className="mr-1 h-4 w-4" /> Добавить позицию
           </Button>
@@ -322,7 +326,8 @@ export function MenuTab({ token }: { token: string }) {
                     size="icon"
                     variant="ghost"
                     className="h-8 w-8 rounded-full"
-                    onClick={() =>
+                    onClick={() => {
+                      setPhotoError(null);
                       setForm({
                         id: m.id,
                         category: m.category,
@@ -334,8 +339,8 @@ export function MenuTab({ token }: { token: string }) {
                         imageUrl: m.imageUrl ?? "",
                         sortOrder: m.sortOrder,
                         isActive: m.isActive,
-                      })
-                    }
+                      });
+                    }}
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
@@ -449,19 +454,26 @@ export function MenuTab({ token }: { token: string }) {
                         const f = e.target.files?.[0];
                         e.target.value = "";
                         if (!f) return;
+                        setPhotoError(null);
                         try {
-                          const dataUrl = await fileToImageDataUrl(f, 800);
+                          const dataUrl = await fileToImageDataUrl(f, 1200);
                           setForm({ ...form, imageUrl: dataUrl });
                         } catch (err) {
-                          alert((err as Error).message);
+                          setPhotoError((err as Error).message);
                         }
                       }}
                     />
                   </label>
                 )}
-                <p className="text-xs opacity-50">
-                  Фото сожмётся автоматически и сохранится вместе с позицией
-                </p>
+                {photoError ? (
+                  <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                    {photoError}
+                  </p>
+                ) : (
+                  <p className="text-xs opacity-50">
+                    Фото сожмётся автоматически и сохранится вместе с позицией
+                  </p>
+                )}
               </div>
               <label className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: BRAND.cream }}>
                 <span className="text-sm font-semibold">Показывать на сайте</span>
