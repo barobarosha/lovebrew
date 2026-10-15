@@ -4,7 +4,11 @@ import { and, asc, eq, gte } from "drizzle-orm";
 import { createRouter, publicQuery } from "../middleware";
 import { getDb } from "../queries/connection";
 import { eventRegistrations, events, menuItems } from "@db/schema";
-import { getPublicSettings } from "../services/settings";
+import {
+  getPublicSettings,
+  getMenuCategoryOrder,
+  sortByCategoryOrder,
+} from "../services/settings";
 import { getMonthCalendar } from "../services/availability";
 import { getYearHolidayDates } from "../services/holidays";
 import { getRestoProvider } from "../quickresto/provider";
@@ -56,11 +60,13 @@ export const siteRouter = createRouter({
         console.error("[quickresto] site menu failed, fallback to site menu:", (e as Error).message);
       }
     }
-    const menu = await db
+    const rows = await db
       .select()
       .from(menuItems)
       .where(eq(menuItems.isActive, true))
       .orderBy(asc(menuItems.sortOrder), asc(menuItems.id));
+    // Порядок категорий — из настройки админки (Меню → «Категории»)
+    const menu = sortByCategoryOrder(rows, await getMenuCategoryOrder());
     return { settings, menuSource: "site" as const, menu };
   }),
 

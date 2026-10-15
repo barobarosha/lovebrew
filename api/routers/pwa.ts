@@ -13,7 +13,11 @@ import {
   updateCustomerName,
   verifyOtp,
 } from "../services/customerAuth";
-import { getPublicSettings } from "../services/settings";
+import {
+  getPublicSettings,
+  getMenuCategoryOrder,
+  sortByCategoryOrder,
+} from "../services/settings";
 import { getRestoProvider } from "../quickresto/provider";
 import { trackEvent } from "../services/analytics";
 import {
@@ -196,11 +200,13 @@ export const pwaRouter = createRouter({
         console.error("[quickresto] menu failed, fallback to site menu:", (e as Error).message);
       }
     }
-    const rows = await getDb()
+    const rawRows = await getDb()
       .select()
       .from(menuItems)
       .where(eq(menuItems.isActive, true))
       .orderBy(asc(menuItems.sortOrder), asc(menuItems.id));
+    // Порядок категорий — из настройки админки (Меню → «Категории»)
+    const rows = sortByCategoryOrder(rawRows, await getMenuCategoryOrder());
     const byCat = new Map<string, typeof rows>();
     for (const r of rows) {
       const list = byCat.get(r.category) ?? [];

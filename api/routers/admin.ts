@@ -15,6 +15,8 @@ import {
   getAllSettings,
   setSetting,
   DEFAULT_SETTINGS,
+  getMenuCategoryOrder,
+  setMenuCategoryOrder,
 } from "../services/settings";
 import { getMonthCalendar, slotsForDate } from "../services/availability";
 import { clientIp, rateLimitOrThrow } from "../lib/rateLimit";
@@ -30,6 +32,26 @@ const imageUrlInput = z
   );
 
 const tokenInput = { token: z.string().min(10, "Недействительная сессия") };
+
+/**
+ * Категории из сохранённых позиций/импорта дописываем в конец порядка
+ * категорий (настройка menu_category_order), чтобы список в админке
+ * всегда отражал реальное меню. Пишем в БД только при изменениях.
+ */
+async function ensureCategoriesInOrder(names: string[]) {
+  const db = getDb();
+  const rows = await db.select({ category: menuItems.category }).from(menuItems);
+  const fromItems = [...new Set(rows.map((r) => r.category))];
+  const order = await getMenuCategoryOrder();
+  const full = [...order, ...fromItems.filter((c) => !order.includes(c))];
+  for (const n of names) {
+    const name = n.trim();
+    if (name && !full.includes(name)) full.push(name);
+  }
+  if (full.length !== order.length || full.some((c, i) => order[i] !== c)) {
+    await setMenuCategoryOrder(full);
+  }
+}
 
 export const adminRouter = createRouter({
   login: publicQuery
@@ -379,6 +401,68 @@ export const adminRouter = createRouter({
         .orderBy(asc(menuItems.sortOrder), asc(menuItems.id));
     }),
 
+  // Категории меню: настроенный порядок + категории, встречающиеся
+  // в позициях (в порядке появления). Порядок списка = порядок у клиента.
+  menuCategories: publicQuery
+    .input(z.object(tokenInput))
+    .query(async ({ input }) => {
+      await assertAdmin(input.token);
+      const rows = await getDb()
+        .select({ category: menuItems.category })
+        .from(menuItems)
+        .orderBy(asc(menuItems.sortOrder), asc(menuItems.id));
+      const fromItems = [...new Set(rows.map((r) => r.category))];
+      const order = await getMenuCategoryOrder();
+      return [
+        ...order,
+        ...fromItems.filter((c) => !order.includes(c)),
+      ];
+    }),
+
+  createMenuCategory: publicQuery
+    .input(z.object({ ...tokenInput, name: z.string().min(1).max(80) }))
+    .mutation(async ({ input }) => {
+      await assertAdmin(input.token);
+      const name = input.name.trim();
+      if (!name) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Введите название категории" });
+      }
+      const rows = await getDb()
+        .select({ category: menuItems.category })
+        .from(menuItems);
+      const existing = [...new Set(rows.map((r) => r.category))];
+      const order = await getMenuCategoryOrder();
+      if (order.includes(name) || existing.includes(name)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Такая категория уже есть" });
+      }
+      const next = [...order, ...existing.filter((c) => !order.includes(c)), name];
+      await setMenuCategoryOrder(next);
+      return { ok: true, categories: next };
+    }),
+
+  reorderMenuCategories: publicQuery
+    .input(
+      z.object({
+        ...tokenInput,
+        order: z.array(z.string().min(1).max(80)).min(1).max(100),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      await assertAdmin(input.token);
+      const clean = [...new Set(input.order.map((c) => c.trim()).filter(Boolean))];
+      // Категории из позиций, которых админ не включил в список, — в конец,
+      // чтобы не потерять их из выдачи.
+      const rows = await getDb()
+        .select({ category: menuItems.category })
+        .from(menuItems);
+      const fromItems = [...new Set(rows.map((r) => r.category))];
+      await setMenuCategoryOrder([
+        ...clean,
+        ...fromItems.filter((c) => !clean.includes(c)),
+      ]);
+      return { ok: true };
+    }),
+
   saveMenuItem: publicQuery
     .input(
       z.object({
@@ -409,9 +493,11 @@ export const adminRouter = createRouter({
       };
       if (input.id) {
         await db.update(menuItems).set(data).where(eq(menuItems.id, input.id));
+        await ensureCategoriesInOrder([input.category]);
         return { id: input.id };
       }
       const [result] = await db.insert(menuItems).values(data);
+      await ensureCategoriesInOrder([input.category]);
       return { id: Number((result as { insertId?: number }).insertId ?? 0) };
     }),
 
@@ -459,6 +545,12 @@ export const adminRouter = createRouter({
           isActive: true,
         })),
       );
+      // Порядок категорий при полной замене меню = порядок в файле импорта
+      if (input.mode === "replace") {
+        await setMenuCategoryOrder([...new Set(input.items.map((it) => it.category))]);
+      } else {
+        await ensureCategoriesInOrder(input.items.map((it) => it.category));
+      }
       return { count: input.items.length };
     }),
 

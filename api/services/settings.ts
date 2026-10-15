@@ -46,6 +46,10 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   sms_aero_api_key: "",
   // Имя отправителя. Пусто = «SMS Aero» (подходит для тестового API-ключа)
   sms_aero_sign: "",
+  // Порядок категорий меню у клиента (сайт + PWA): JSON-массив названий,
+  // напр. ["Кофе","Десерты"]. Правится в админке → Меню → «Категории».
+  // НЕ публичная настройка — порядок применяется сервером при отдаче меню.
+  menu_category_order: "[]",
 };
 
 export const PUBLIC_SETTING_KEYS = [
@@ -81,6 +85,37 @@ export async function getPublicSettings(): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   for (const k of PUBLIC_SETTING_KEYS) out[k] = all[k];
   return out;
+}
+
+/** Порядок категорий меню из настройки menu_category_order (JSON-массив). */
+export async function getMenuCategoryOrder(): Promise<string[]> {
+  const all = await getAllSettings();
+  try {
+    const arr: unknown = JSON.parse(all.menu_category_order ?? "[]");
+    if (!Array.isArray(arr)) return [];
+    return arr.filter((x): x is string => typeof x === "string" && !!x.trim());
+  } catch {
+    return [];
+  }
+}
+
+export async function setMenuCategoryOrder(order: string[]) {
+  await setSetting("menu_category_order", JSON.stringify(order));
+}
+
+/**
+ * Сортировка позиций меню по порядку категорий (стабильная: внутри
+ * категории сохраняется sortOrder/id). Категории вне списка — в конце,
+ * в исходном порядке появления.
+ */
+export function sortByCategoryOrder<T extends { category: string }>(
+  rows: T[],
+  order: string[],
+): T[] {
+  const rank = new Map(order.map((c, i) => [c, i]));
+  return [...rows].sort(
+    (a, b) => (rank.get(a.category) ?? order.length) - (rank.get(b.category) ?? order.length),
+  );
 }
 
 export async function setSetting(key: string, value: string) {

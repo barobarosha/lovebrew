@@ -11,11 +11,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileUp, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ArrowDown,
+  ArrowUp,
+  FileUp,
+  ImagePlus,
+  ListOrdered,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
+
+const NEW_CATEGORY = "__new__";
 
 type MenuForm = {
   id?: number;
   category: string;
+  categoryNew: string;
   name: string;
   description: string;
   volume: string;
@@ -27,6 +47,7 @@ type MenuForm = {
 
 const EMPTY: MenuForm = {
   category: "Кофе",
+  categoryNew: "",
   name: "",
   description: "",
   volume: "",
@@ -76,6 +97,7 @@ function parseQuickRestoTsv(text: string): ImportItem[] {
 
 export function MenuTab({ token }: { token: string }) {
   const list = trpc.admin.menu.useQuery({ token });
+  const catsQuery = trpc.admin.menuCategories.useQuery({ token });
   const settingsQuery = trpc.admin.settings.useQuery({ token });
   const qrEnabled =
     ((settingsQuery.data as Record<string, string> | undefined)?.qr_enabled ?? "0") === "1";
@@ -84,10 +106,15 @@ export function MenuTab({ token }: { token: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const [replaceMode, setReplaceMode] = useState(false);
+  const [catsOpen, setCatsOpen] = useState(false);
+  const [catsOrder, setCatsOrder] = useState<string[]>([]);
+  const [newCatName, setNewCatName] = useState("");
+  const [catsMsg, setCatsMsg] = useState<string | null>(null);
 
   const save = trpc.admin.saveMenuItem.useMutation({
     onSuccess: () => {
       utils.admin.menu.invalidate();
+      utils.admin.menuCategories.invalidate();
       utils.site.content.invalidate();
       setForm(null);
     },
@@ -101,11 +128,40 @@ export function MenuTab({ token }: { token: string }) {
   const importMenu = trpc.admin.importMenu.useMutation({
     onSuccess: (r) => {
       utils.admin.menu.invalidate();
+      utils.admin.menuCategories.invalidate();
       utils.site.content.invalidate();
       setImportMsg(`Импортировано позиций: ${r.count}`);
     },
     onError: (e) => setImportMsg(`Ошибка: ${e.message}`),
   });
+  const createCategory = trpc.admin.createMenuCategory.useMutation({
+    onSuccess: (r) => {
+      utils.admin.menuCategories.invalidate();
+      setCatsOrder(r.categories);
+      setNewCatName("");
+      setCatsMsg(null);
+    },
+    onError: (e) => setCatsMsg(e.message),
+  });
+  const reorderCategories = trpc.admin.reorderMenuCategories.useMutation({
+    onSuccess: () => {
+      utils.admin.menuCategories.invalidate();
+      utils.admin.menu.invalidate();
+      utils.site.content.invalidate();
+      setCatsMsg("Порядок сохранён — так категории видят клиенты");
+    },
+    onError: (e) => setCatsMsg(`Ошибка: ${e.message}`),
+  });
+
+  const moveCategory = (idx: number, dir: -1 | 1) => {
+    setCatsOrder((prev) => {
+      const next = [...prev];
+      const j = idx + dir;
+      if (j < 0 || j >= next.length) return prev;
+      [next[idx], next[j]] = [next[j], next[idx]];
+      return next;
+    });
+  };
 
   const handleFile = async (file: File) => {
     setImportMsg(null);
@@ -149,7 +205,19 @@ export function MenuTab({ token }: { token: string }) {
     }
   };
 
-  const categories = [...new Set((list.data ?? []).map((m) => m.category))];
+  // Категории с позициями — в настроенном порядке (как у клиента);
+  // неохваченные настройкой — в конце, в порядке появления.
+  const itemCats = [...new Set((list.data ?? []).map((m) => m.category))];
+  const ordered = catsQuery.data ?? [];
+  const categories = [
+    ...ordered.filter((c) => itemCats.includes(c)),
+    ...itemCats.filter((c) => !ordered.includes(c)),
+  ];
+  // Все известные категории (включая пустые, созданные заранее) — для выбора в форме
+  const allCategories = [
+    ...ordered,
+    ...itemCats.filter((c) => !ordered.includes(c)),
+  ];
 
   return (
     <div className="space-y-4">
@@ -166,6 +234,18 @@ export function MenuTab({ token }: { token: string }) {
             onClick={() => setForm(EMPTY)}
           >
             <Plus className="mr-1 h-4 w-4" /> Добавить позицию
+          </Button>
+          <Button
+            variant="outline"
+            className="rounded-full"
+            onClick={() => {
+              setCatsOrder(allCategories);
+              setNewCatName("");
+              setCatsMsg(null);
+              setCatsOpen(true);
+            }}
+          >
+            <ListOrdered className="mr-1 h-4 w-4" /> Категории
           </Button>
           <Button
             variant="outline"
@@ -246,6 +326,7 @@ export function MenuTab({ token }: { token: string }) {
                       setForm({
                         id: m.id,
                         category: m.category,
+                        categoryNew: "",
                         name: m.name,
                         description: m.description ?? "",
                         volume: m.volume ?? "",
@@ -286,12 +367,30 @@ export function MenuTab({ token }: { token: string }) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1">
                   <Label>Категория</Label>
-                  <Input className="rounded-xl" list="menu-cats" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
-                  <datalist id="menu-cats">
-                    {categories.map((c) => (
-                      <option key={c} value={c} />
-                    ))}
-                  </datalist>
+                  <Select
+                    value={form.category}
+                    onValueChange={(v) => setForm({ ...form, category: v, categoryNew: "" })}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Выберите категорию" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allCategories.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={NEW_CATEGORY}>➕ Новая категория…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {form.category === NEW_CATEGORY && (
+                    <Input
+                      className="mt-1 rounded-xl"
+                      placeholder="Название новой категории"
+                      value={form.categoryNew}
+                      onChange={(e) => setForm({ ...form, categoryNew: e.target.value })}
+                    />
+                  )}
                 </div>
                 <div className="grid gap-1">
                   <Label>Цена, ₽</Label>
@@ -374,12 +473,17 @@ export function MenuTab({ token }: { token: string }) {
               <Button
                 className="rounded-full"
                 style={{ background: BRAND.ink, color: BRAND.cream }}
-                disabled={save.isPending || !form.name || !form.category}
+                disabled={
+                  save.isPending ||
+                  !form.name ||
+                  !(form.category === NEW_CATEGORY ? form.categoryNew.trim() : form.category)
+                }
                 onClick={() =>
                   save.mutate({
                     token,
                     id: form.id,
-                    category: form.category,
+                    category:
+                      form.category === NEW_CATEGORY ? form.categoryNew.trim() : form.category,
                     name: form.name,
                     description: form.description || undefined,
                     volume: form.volume || undefined,
@@ -394,6 +498,79 @@ export function MenuTab({ token }: { token: string }) {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={catsOpen} onOpenChange={setCatsOpen}>
+        <DialogContent className="rounded-3xl sm:max-w-md" style={{ background: BRAND.white }}>
+          <DialogHeader>
+            <DialogTitle className="font-display">Категории меню</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs opacity-60">
+            Порядок в этом списке = порядок категорий на сайте и в приложении.
+          </p>
+          <div className="grid gap-1.5">
+            {catsOrder.map((c, i) => (
+              <div
+                key={c}
+                className="flex items-center gap-2 rounded-xl px-3 py-2"
+                style={{ background: BRAND.cream }}
+              >
+                <span className="w-6 text-center text-xs font-bold opacity-50">{i + 1}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold">{c}</span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 rounded-full"
+                  disabled={i === 0}
+                  onClick={() => moveCategory(i, -1)}
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 rounded-full"
+                  disabled={i === catsOrder.length - 1}
+                  onClick={() => moveCategory(i, 1)}
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+            {!catsOrder.length && (
+              <p className="py-2 text-center text-sm opacity-50">Категорий пока нет</p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Input
+              className="rounded-xl"
+              placeholder="Новая категория"
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+            />
+            <Button
+              variant="outline"
+              className="shrink-0 rounded-full"
+              disabled={createCategory.isPending || !newCatName.trim()}
+              onClick={() => createCategory.mutate({ token, name: newCatName.trim() })}
+            >
+              <Plus className="mr-1 h-4 w-4" /> Создать
+            </Button>
+          </div>
+          {catsMsg && (
+            <p className="rounded-xl px-3 py-2 text-sm" style={{ background: BRAND.sage, color: BRAND.ink }}>
+              {catsMsg}
+            </p>
+          )}
+          <Button
+            className="rounded-full"
+            style={{ background: BRAND.ink, color: BRAND.cream }}
+            disabled={reorderCategories.isPending || !catsOrder.length}
+            onClick={() => reorderCategories.mutate({ token, order: catsOrder })}
+          >
+            Сохранить порядок
+          </Button>
         </DialogContent>
       </Dialog>
     </div>
