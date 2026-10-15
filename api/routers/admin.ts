@@ -320,11 +320,21 @@ export const adminRouter = createRouter({
         registrationOpen: input.registrationOpen,
       };
       if (input.id) {
-        await db.update(events).set(data).where(eq(events.id, input.id));
+        try {
+          await db.update(events).set(data).where(eq(events.id, input.id));
+        } catch (e) {
+          friendlyDbError(e);
+        }
         return { id: input.id };
       }
-      const [result] = await db.insert(events).values(data);
-      return { id: Number((result as { insertId?: number }).insertId ?? 0) };
+      let insertId = 0;
+      try {
+        const [result] = await db.insert(events).values(data);
+        insertId = Number((result as { insertId?: number }).insertId ?? 0);
+      } catch (e) {
+        friendlyDbError(e);
+      }
+      return { id: insertId };
     }),
 
   deleteEvent: publicQuery

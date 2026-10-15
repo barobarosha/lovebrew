@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { trpc } from "@/providers/trpc";
-import { BRAND, formatDateRu } from "@/lib/site";
+import { BRAND, fileToImageDataUrl, formatDateRu } from "@/lib/site";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Check, ChevronDown, ChevronUp, Pencil, Plus, Ticket, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ImagePlus, Pencil, Plus, Ticket, Trash2, X } from "lucide-react";
 
 type EventForm = {
   id?: number;
@@ -48,6 +48,7 @@ export function EventsTab({ token }: { token: string }) {
   const utils = trpc.useUtils();
   const [form, setForm] = useState<EventForm | null>(null);
   const [regsFor, setRegsFor] = useState<number | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   const save = trpc.admin.saveEvent.useMutation({
     onSuccess: () => {
@@ -76,7 +77,10 @@ export function EventsTab({ token }: { token: string }) {
         <Button
           className="rounded-full"
           style={{ background: BRAND.sageDeep, color: BRAND.white }}
-          onClick={() => setForm(EMPTY)}
+          onClick={() => {
+            setPhotoError(null);
+            setForm(EMPTY);
+          }}
         >
           <Plus className="mr-1 h-4 w-4" /> Добавить анонс
         </Button>
@@ -116,7 +120,8 @@ export function EventsTab({ token }: { token: string }) {
                   size="icon"
                   variant="ghost"
                   className="rounded-full"
-                  onClick={() =>
+                  onClick={() => {
+                    setPhotoError(null);
                     setForm({
                       id: e.id,
                       title: e.title,
@@ -127,8 +132,8 @@ export function EventsTab({ token }: { token: string }) {
                       imageUrl: e.imageUrl ?? "",
                       isPublished: e.isPublished,
                       registrationOpen: e.registrationOpen,
-                    })
-                  }
+                    });
+                  }}
                 >
                   <Pencil className="h-4 w-4" />
                 </Button>
@@ -203,8 +208,69 @@ export function EventsTab({ token }: { token: string }) {
                 </div>
               </div>
               <div className="grid gap-1">
-                <Label>Ссылка на изображение (необязательно)</Label>
-                <Input className="rounded-xl" placeholder="https://…" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} />
+                <Label>Обложка события (необязательно)</Label>
+                {form.imageUrl ? (
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={form.imageUrl}
+                      alt=""
+                      className="h-16 w-24 rounded-xl object-cover"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full"
+                      onClick={() => setForm({ ...form, imageUrl: "" })}
+                    >
+                      <X className="mr-1 h-3.5 w-3.5" /> Убрать
+                    </Button>
+                  </div>
+                ) : (
+                  <label
+                    className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm font-semibold"
+                    style={{ borderColor: BRAND.sageDeep, color: BRAND.sageDeep }}
+                  >
+                    <ImagePlus className="h-4 w-4" />
+                    Загрузить фото
+                    <input
+                      type="file"
+                      accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!f) return;
+                        setPhotoError(null);
+                        try {
+                          // Обложки показываются крупнее — maxPx 1600
+                          const dataUrl = await fileToImageDataUrl(f, 1600);
+                          setForm({ ...form, imageUrl: dataUrl });
+                        } catch (err) {
+                          setPhotoError((err as Error).message);
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+                {photoError ? (
+                  <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                    {photoError}
+                  </p>
+                ) : (
+                  <p className="text-xs opacity-50">
+                    Фото сожмётся автоматически и сохранится вместе с анонсом.
+                    Можно и по ссылке:
+                  </p>
+                )}
+                {!form.imageUrl && (
+                  <Input
+                    className="rounded-xl"
+                    placeholder="https://…"
+                    value={form.imageUrl}
+                    onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                  />
+                )}
               </div>
               <label className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: BRAND.cream }}>
                 <span className="text-sm font-semibold">Опубликован</span>
