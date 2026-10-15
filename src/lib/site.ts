@@ -141,13 +141,12 @@ export function formatPhoneInput(raw: string): string {
  * (любой image/*, включая HEIC с iPhone — браузер декодирует сам),
  * ресайз до maxPx по длинной стороне, JPEG quality 0.85.
  * Итог ~300–500 КБ вместо исходных 5–10 МБ.
+ * MIME у файла может быть кривым или пустым (HEIC так часто приходит) —
+ * поэтому тип не проверяем: картинка ли это, определяет само декодирование
+ * (img.onload/onerror).
  */
 export function fileToImageDataUrl(file: File, maxPx = 1200): Promise<string> {
   return new Promise((resolve, reject) => {
-    if (!file.type.startsWith("image/")) {
-      reject(new Error("Фото: нужен JPG/PNG/WEBP до 10 МБ"));
-      return;
-    }
     if (file.size > 10 * 1024 * 1024) {
       reject(new Error("Фото: нужен JPG/PNG/WEBP до 10 МБ"));
       return;

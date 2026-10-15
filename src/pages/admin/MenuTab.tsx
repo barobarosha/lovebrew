@@ -448,7 +448,7 @@ export function MenuTab({ token }: { token: string }) {
                     Загрузить фото
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
                       className="hidden"
                       onChange={async (e) => {
                         const f = e.target.files?.[0];
