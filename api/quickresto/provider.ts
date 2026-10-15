@@ -131,6 +131,27 @@ function phoneFromContactMethods(methods: Json[]): string | undefined {
   return undefined;
 }
 
+/**
+ * Тип бонусной операции QR → "credit" (начисление) / "debit" (списание).
+ * QR отдаёт разные значения ("accrual", "writeOff", числовые коды и т.п.) —
+ * поэтому матчим широко; неизвестный тип определяем по знаку суммы и
+ * пишем сырой тип в лог, чтобы дополнить список по факту.
+ */
+function normalizeOperationType(
+  rawType: string | undefined,
+  amount: number,
+): "credit" | "debit" {
+  const t = (rawType ?? "").toLowerCase();
+  if (/(credit|accrual|charge|deposit|earn|add|начис)/.test(t)) return "credit";
+  if (/(debit|write.?off|withdraw|spend|redeem|спис)/.test(t)) return "debit";
+  if (t) {
+    console.warn(
+      `[quickresto] неизвестный тип бонусной операции: ${JSON.stringify(rawType)}, сумма ${amount} — определён по знаку`,
+    );
+  }
+  return amount >= 0 ? "credit" : "debit";
+}
+
 /** customerGuid для putCustomer в формате Quick Resto:
  *  customer_put-yyMMddHHmmssSSS (15 цифр) + 1 случайный символ [0-9A-Z].
  *  В свободном формате (app-…) putCustomer падает с HTTP 500 на их стороне. */
@@ -374,14 +395,18 @@ export class BackOfficeProvider implements RestoProvider {
         accountType: { accountGuid },
       });
       return firstArrayDeep(res)
-        .map((op) => ({
-          date:
-            pickString(op, "date", "operationDate", "created", "createdAt") ?? "",
-          type: pickString(op, "type", "operationType", "kind") ?? "operation",
-          amount:
-            pickNumberDeep(op, ["amount", "sum", "value", "bonuses"]) ?? 0,
-          comment: pickString(op, "comment", "description", "orderNumber"),
-        }))
+        .map((op) => {
+          const amount =
+            pickNumberDeep(op, ["amount", "sum", "value", "bonuses"]) ?? 0;
+          const rawType = pickString(op, "type", "operationType", "kind");
+          return {
+            date:
+              pickString(op, "date", "operationDate", "created", "createdAt") ?? "",
+            type: normalizeOperationType(rawType, amount),
+            amount,
+            comment: pickString(op, "comment", "description", "orderNumber"),
+          };
+        })
         .slice(0, 30);
     } catch {
       return [];
