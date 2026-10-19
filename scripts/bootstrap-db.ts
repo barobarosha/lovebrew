@@ -55,7 +55,7 @@ const DDL: string[] = [
     date VARCHAR(10) NOT NULL,
     time VARCHAR(5),
     price VARCHAR(60),
-    image_url VARCHAR(500),
+    image_url MEDIUMTEXT,
     is_published BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
@@ -66,7 +66,7 @@ const DDL: string[] = [
     description VARCHAR(300),
     volume VARCHAR(30),
     price INT NOT NULL,
-    image_url VARCHAR(500),
+    image_url MEDIUMTEXT,
     sort_order INT NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE
   )`,
@@ -141,12 +141,12 @@ const LATE_MODIFIES: { table: string; column: string; ddl: string }[] = [
   {
     table: "menu_items",
     column: "image_url",
-    ddl: "ALTER TABLE menu_items MODIFY COLUMN image_url TEXT",
+    ddl: "ALTER TABLE menu_items MODIFY COLUMN image_url MEDIUMTEXT",
   },
   {
     table: "events",
     column: "image_url",
-    ddl: "ALTER TABLE events MODIFY COLUMN image_url TEXT",
+    ddl: "ALTER TABLE events MODIFY COLUMN image_url MEDIUMTEXT",
   },
 ];
 
@@ -168,7 +168,7 @@ async function main() {
     const col = (cols as { Field: string; Type: string }[]).find(
       (r) => r.Field === m.column,
     );
-    if (col && !col.Type.toLowerCase().startsWith("text")) {
+    if (col && col.Type.toLowerCase() !== "mediumtext") {
       await conn.query(m.ddl);
       console.log(`~ тип ${m.table}.${m.column} → TEXT`);
     }
